@@ -215,52 +215,53 @@ public:
 
 
 void SRC_linker_rna::parse_query_sequences (int threshold, uint size_window, const int nbCores, const string& bankName){
-    cout << "yy" << endl;
-    BankAlbum banks (bankName);
-    cout << "nn" << endl;
-    const std::vector<IBank*>& banks_of_queries = banks.getBanks();
-    const int number_of_read_sets = banks_of_queries.size();
+    //~ cout << bankName << endl;
+    //~ BankAlbum banks (bankName);
+    //~ cout << "nn" << endl;
+    //~ const std::vector<IBank*>& banks_of_queries = banks.getBanks();
+    //~ const int number_of_read_sets = banks_of_queries.size();
+    //~ IBank* bank = Bank::open (bankName);
+	//~ FILE * outFile;
+	//~ outFile = fopen (getInput()->getStr(STR_OUT_FILE).c_str(), "wb");
+    //~ string message("#query_read_id [target_read_id-kmer_span (k="+to_string(kmer_size)+")-kmer_span query percentage]* or U (unvalid read, containing not only ACGT characters or low complexity read)\n"+"#Target read set: "+getInput()->getStr(STR_URI_BANK_INPUT)+"\n");
+    //~ fwrite((message).c_str(), sizeof(char), message.size(), outFile);
     
     
-	//~ cout<<"Query "<<kmer_size<<"-mers from bank "<<getInput()->getStr(STR_URI_QUERY_INPUT)<<endl;
-	FILE * outFile;
-	outFile = fopen (getInput()->getStr(STR_OUT_FILE).c_str(), "wb");
-    string message("#query_read_id [target_read_id-kmer_span (k="+to_string(kmer_size)+")-kmer_span query percentage]* or U (unvalid read, containing not only ACGT characters or low complexity read)\n"+"#Target read set: "+getInput()->getStr(STR_URI_BANK_INPUT)+"\n");
-    fwrite((message).c_str(), sizeof(char), message.size(), outFile);
-    
-    
-    for( int bank_id=0;bank_id<number_of_read_sets;bank_id++){ // iterate each bank
+    //~ for( int bank_id=0;bank_id<number_of_read_sets;bank_id++){ // iterate each bank
         
         
-        IBank* bank=banks_of_queries[bank_id];
-        LOCAL (bank);
-        string message("#Query read set number "+bank->getId()+"\n");
-        fwrite((message).c_str(), sizeof(char), message.size(), outFile);
-        string progressMessage("Querying read set "+bank->getId());
-        ProgressIterator<Sequence> itSeq (*bank, progressMessage.c_str());
-        ISynchronizer* synchro = System::thread().newSynchronizer();
-        Dispatcher dispatcher (nbCores, 1000);
-	std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;
-	std::unordered_map<uint64_t, vector<uint>> read_group;
-        dispatcher.iterate (itSeq, FunctorQuerySpanKmers(synchro, outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
+        //~ IBank* bank=banks_of_queries[bank_id];
+        //~ LOCAL (bank);
+        //~ string message("#Query read set number "+bank->getId()+"\n");
+        //~ fwrite((message).c_str(), sizeof(char), message.size(), outFile);
+        //~ string progressMessage("Querying read set "+bank->getId());
+        //~ ProgressIterator<Sequence> itSeq (*bank, progressMessage.c_str());
+        //~ ISynchronizer* synchro = System::thread().newSynchronizer();
+        //~ Dispatcher dispatcher (nbCores, 1000);
+	//~ std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;
+	//~ std::unordered_map<uint64_t, vector<uint>> read_group;
+        //~ dispatcher.iterate (itSeq, FunctorQuerySpanKmers(synchro, outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
         //~ delete synchro;
-    }
+    //~ }
+    //~ fclose (outFile);
+    
+    
+    IBank* bank = Bank::open(bankName);
+    cout<<"Query "<<kmer_size<<"-mers from bank "<< bankName <<endl;
+    FILE * outFile;
+    outFile = fopen (getInput()->getStr(STR_OUT_FILE).c_str(), "wb");
+    string message("#query_read_id [target_read_id-kmer_span (k="+to_string(kmer_size)+")-kmer_span query percentage]* or U (unvalid read, containing not only ACGT characters or low complexity read)\n");
+    fwrite((message).c_str(), sizeof(char), message.size(), outFile);
+    LOCAL (bank);
+    ProgressIterator<Sequence> itSeq (*bank);
+    ISynchronizer* synchro = System::thread().newSynchronizer();
+    Dispatcher dispatcher (nbCores, 10000);
+    std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;
+    std::unordered_map<uint64_t, vector<uint>> read_group;
+    //~ dispatcher.iterate (itSeq, FunctorQuerySpanKmers(synchro,pFile, kmer_size,&quasiDico, threshold));
+    dispatcher.iterate (itSeq, FunctorQuerySpanKmers(synchro, outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
     fclose (outFile);
-    
-    
-//	IBank* bank = Bank::open (getInput()->getStr(STR_URI_QUERY_INPUT));
-//	cout<<"Query "<<kmer_size<<"-mers from bank "<<getInput()->getStr(STR_URI_QUERY_INPUT)<<endl;
-//	FILE * pFile;
-//	pFile = fopen (getInput()->getStr(STR_OUT_FILE).c_str(), "wb");
-//	string message("#query_read_id [target_read_id-kmer_span (k="+to_string(kmer_size)+")-kmer_span query percentage]* or U (unvalid read, containing not only ACGT characters or low complexity read)\n");
-//	fwrite((message).c_str(), sizeof(char), message.size(), pFile);
-//	LOCAL (bank);
-//	ProgressIterator<Sequence> itSeq (*bank);
-//	ISynchronizer* synchro = System::thread().newSynchronizer();
-//	Dispatcher dispatcher (nbCores, 10000);
-//	dispatcher.iterate (itSeq, FunctorQuerySpanKmers(synchro,pFile, kmer_size,&quasiDico, threshold));
-//	fclose (pFile);
-//	delete synchro;
+    delete synchro;
 }
 
 
@@ -284,7 +285,7 @@ void SRC_linker_rna::execute (){
 	int threshold = getInput()->getInt(STR_THRESHOLD);
 	uint size_window =  getInput()->getInt(STR_WINDOW);
 
-	cout << "okkkk" << endl;
+	cout << bankName << endl;
 	parse_query_sequences(threshold, size_window, nbCores, bankName);
 	cout << "OK" << endl;
 	getInfo()->add (1, &LibraryInfo::getInfo());
