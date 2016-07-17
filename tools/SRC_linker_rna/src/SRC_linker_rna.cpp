@@ -9,7 +9,7 @@ using namespace std;
 
 // We define some constant strings for names of command line parameters
 static const char* STR_URI_BANK_INPUT = "-bank";
-static const char* STR_URI_QUERY_INPUT = "-query";
+//~ static const char* STR_URI_QUERY_INPUT = "-query";
 static const char* STR_FINGERPRINT = "-fingerprint_size";
 static const char* STR_GAMMA = "-gamma";
 static const char* STR_THRESHOLD = "-kmer_threshold";
@@ -22,7 +22,7 @@ SRC_linker_rna::SRC_linker_rna ()  : Tool ("SRC_linker_rna"){
 	// We add some custom arguments for command line interface
 	getParser()->push_back (new OptionOneParam (STR_URI_GRAPH, "graph input",   true));
 	getParser()->push_back (new OptionOneParam (STR_URI_BANK_INPUT, "bank input",    true));
-	getParser()->push_back (new OptionOneParam (STR_URI_QUERY_INPUT, "query input",    true));
+	//~ getParser()->push_back (new OptionOneParam (STR_URI_QUERY_INPUT, "query input",    true));
 	getParser()->push_back (new OptionOneParam (STR_OUT_FILE, "output_file",    true));
 	getParser()->push_back (new OptionOneParam (STR_THRESHOLD, "Minimal percentage of shared kmer in a region for considering 2 reads in a same group.",    false, "75"));
 	getParser()->push_back (new OptionOneParam (STR_WINDOW, "Size of a region (putative exon).",    false, "80"));
@@ -211,12 +211,12 @@ public:
 
 
 void SRC_linker_rna::parse_query_sequences (int threshold, uint size_window, const int nbCores){
-    BankAlbum banks (getInput()->getStr(STR_URI_QUERY_INPUT));
+    BankAlbum banks (getInput()->getStr(STR_URI_BANK_INPUT));
     const std::vector<IBank*>& banks_of_queries = banks.getBanks();
     const int number_of_read_sets = banks_of_queries.size();
     
     
-	cout<<"Query "<<kmer_size<<"-mers from bank "<<getInput()->getStr(STR_URI_QUERY_INPUT)<<endl;
+	//~ cout<<"Query "<<kmer_size<<"-mers from bank "<<getInput()->getStr(STR_URI_QUERY_INPUT)<<endl;
 	FILE * outFile;
 	outFile = fopen (getInput()->getStr(STR_OUT_FILE).c_str(), "wb");
     string message("#query_read_id [target_read_id-kmer_span (k="+to_string(kmer_size)+")-kmer_span query percentage]* or U (unvalid read, containing not only ACGT characters or low complexity read)\n"+"#Target read set: "+getInput()->getStr(STR_URI_BANK_INPUT)+"\n");
@@ -280,8 +280,8 @@ void SRC_linker_rna::execute (){
 
 	getInfo()->add (1, &LibraryInfo::getInfo());
 	getInfo()->add (1, "input");
-	getInfo()->add (2, "Reference bank",  "%s",  getInput()->getStr(STR_URI_BANK_INPUT).c_str());
-	getInfo()->add (2, "Query bank",  "%s",  getInput()->getStr(STR_URI_QUERY_INPUT).c_str());
+	getInfo()->add (2, "Sequences bank",  "%s",  getInput()->getStr(STR_URI_BANK_INPUT).c_str());
+	//~ getInfo()->add (2, "Query bank",  "%s",  getInput()->getStr(STR_URI_QUERY_INPUT).c_str());
     getInfo()->add (2, "Kmer size",  "%d",  kmer_size);
 	getInfo()->add (2, "Fingerprint size",  "%d",  fingerprint_size);
     getInfo()->add (2, "gamma",  "%d",  gamma_value);
