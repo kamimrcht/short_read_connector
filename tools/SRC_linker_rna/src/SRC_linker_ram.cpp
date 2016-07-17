@@ -147,7 +147,8 @@ public:
 		    ++i;
 		}
 		for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
-		    vector<uint> presence(1000, 0);
+		    size_t lenseq = seq.getDataSize();
+		    vector<uint> presence(uint(lenseq) - kmer_size + 1, 0);
 		    uint count(0);
 		    bool found(false);
 		    for (uint j(0); j < r->second.size(); ++j){
@@ -182,58 +183,6 @@ public:
 			}
 		    }
 		}
-		    
-
-
-
-		
-		//~ bool exists;
-		//~ associated_read_ids={}; // list of the ids of reads from the bank where a kmer occurs
- 		//~ similar_read_ids_position_count={}; // tmp list of couples <last used position, kmer spanning>
-		//~ itKmer->setData (seq.getData());
-		//~ u_int i=0; // position on the read
-		//~ for (itKmer->first(); !itKmer->isDone(); itKmer->next()){
-			//~ quasiDico->get_value((*itKmer)->value().getVal(),exists,associated_read_ids);
-			//~ if(!exists) {++i;continue;}
-			//~ for(auto &read_id: associated_read_ids){
-				//~ std::unordered_map<u_int32_t, std::pair <u_int,u_int>>::const_iterator element = similar_read_ids_position_count.find(read_id);
-				//~ if(element == similar_read_ids_position_count.end()) {// not inserted yet:
-					//~ similar_read_ids_position_count[read_id]=std::make_pair(i, kmer_size);
-				//~ }else{  // a kmer is already shared with this read
-					//~ std::pair <int,int> lastpos_spankmer = (element->second);
-                    //~ // update spanning, up to a kmer size
-                    //~ if ((i-lastpos_spankmer.first)<kmer_size)   lastpos_spankmer.second += i-lastpos_spankmer.first;
-                    //~ else                                        lastpos_spankmer.second += kmer_size;
-                    //~ lastpos_spankmer.first=i;                                            // update last position of a shared kmer with this read
-                    //~ similar_read_ids_position_count[read_id] = lastpos_spankmer;
-				//~ }
-			//~ }
-			//~ ++i;
-		//~ }
-		//~ string toPrint;
-		//~ bool read_id_printed=false; // Print (and sync file) only if the read is similar to something.
-		//~ for (auto &matched_read:similar_read_ids_position_count){
-			//~ float percentage_span_kmer = 100*std::get<1>(matched_read.second)/float(seq.getDataSize());
-			//~ if (percentage_span_kmer >= threshold) {
-				//~ if (not read_id_printed){
-					//~ read_id_printed=true;
-					//~ toPrint=to_string(seq.getIndex()+1)+":";
-				//~ }
-				//~ toPrint+=to_string(matched_read.first)+"-"+to_string(std::get<1>(matched_read.second))+"-"+to_string(float(percentage_span_kmer))+" ";
-//~ //				fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
-			//~ }
-            
-		//~ }
-		//~ if(read_id_printed){
-		    //~ synchro->lock();
-		    //~ toPrint+="\n";
-		    //~ fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
-		    //~ synchro->unlock ();
-		//~ }
-
-
-
-
 	    string toPrint;
 	    bool read_id_printed = false; // Print (and sync file) only if the read is similar to something.
 	    for (auto read(read_group.begin()); read != read_group.end(); ++read){
