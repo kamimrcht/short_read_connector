@@ -1,4 +1,4 @@
-#include <SRC_linker_ram.hpp>
+#include <SRC_linker_rna.hpp>
 
 
 using namespace std;
@@ -18,7 +18,7 @@ static const char* STR_OUT_FILE = "-out";
 static const char* STR_CORE = "-core";
 
 
-SRC_linker_ram::SRC_linker_ram ()  : Tool ("SRC_linker_ram"){
+SRC_linker_rna::SRC_linker_rna ()  : Tool ("SRC_linker_rna"){
 	// We add some custom arguments for command line interface
 	getParser()->push_back (new OptionOneParam (STR_URI_GRAPH, "graph input",   true));
 	getParser()->push_back (new OptionOneParam (STR_URI_BANK_INPUT, "bank input",    true));
@@ -32,7 +32,7 @@ SRC_linker_ram::SRC_linker_ram ()  : Tool ("SRC_linker_ram"){
 }
 
 
-void SRC_linker_ram::create_quasi_dictionary (int fingerprint_size, int nbCores){
+void SRC_linker_rna::create_quasi_dictionary (int fingerprint_size, int nbCores){
 	const int display = getInput()->getInt (STR_VERBOSE);
 	// We get a handle on the HDF5 storage object.
 	// Note that we use an auto pointer since the StorageFactory dynamically allocates an instance
@@ -75,7 +75,7 @@ struct FunctorIndexer{
 };
 
 
-void SRC_linker_ram::fill_quasi_dictionary (const int nbCores){
+void SRC_linker_rna::fill_quasi_dictionary (const int nbCores){
 	bool exists;
 	IBank* bank = Bank::open (getInput()->getStr(STR_URI_BANK_INPUT));
 	cout<<"Index "<<kmer_size<<"-mers from bank "<<getInput()->getStr(STR_URI_BANK_INPUT)<<endl;
@@ -210,7 +210,7 @@ public:
 
 
 
-void SRC_linker_ram::parse_query_sequences (int threshold, uint size_window, const int nbCores){
+void SRC_linker_rna::parse_query_sequences (int threshold, uint size_window, const int nbCores){
     BankAlbum banks (getInput()->getStr(STR_URI_QUERY_INPUT));
     const std::vector<IBank*>& banks_of_queries = banks.getBanks();
     const int number_of_read_sets = banks_of_queries.size();
@@ -258,7 +258,7 @@ void SRC_linker_ram::parse_query_sequences (int threshold, uint size_window, con
 }
 
 
-void SRC_linker_ram::execute (){
+void SRC_linker_rna::execute (){
 	int nbCores = getInput()->getInt(STR_CORE);
 	int fingerprint_size = getInput()->getInt(STR_FINGERPRINT);
     gamma_value = getInput()->getInt(STR_GAMMA);
