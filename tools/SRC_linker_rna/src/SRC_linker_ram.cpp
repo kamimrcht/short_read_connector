@@ -90,7 +90,7 @@ void SRC_linker_ram::fill_quasi_dictionary (const int nbCores){
 class FunctorQuerySpanKmers // FunctorQuery used after claires discussion: number of positions covered by a shared kmer.
 {
 public:
-	//~ ISynchronizer* synchro;
+	ISynchronizer* synchro;
 	FILE* outFile;
 	int kmer_size;
 	quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t>* quasiDico;
@@ -105,7 +105,7 @@ public:
     
 	FunctorQuerySpanKmers(const FunctorQuerySpanKmers& lol)
 	{
-		//~ synchro=lol.synchro;
+		synchro=lol.synchro;
 		outFile=lol.outFile;
 		kmer_size=lol.kmer_size;
 		quasiDico=lol.quasiDico;
@@ -118,8 +118,8 @@ public:
 		itKmer = new Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator (model);
 	}
     
-	FunctorQuerySpanKmers (FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold, const uint size_window, std::unordered_map<uint64_t, vector<uint>>& reads_sharing_kmer_2_positions, std::unordered_map<uint64_t, vector<uint>> read_group)
-	:  outFile(outFile), kmer_size(kmer_size), quasiDico(quasiDico), threshold(threshold), size_window(size_window),   reads_sharing_kmer_2_positions(reads_sharing_kmer_2_positions), read_group(read_group){
+	FunctorQuerySpanKmers (ISynchronizer* synchro, FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold, const uint size_window, std::unordered_map<uint64_t, vector<uint>>& reads_sharing_kmer_2_positions, std::unordered_map<uint64_t, vector<uint>> read_group)
+	: synchro(synchro), outFile(outFile), kmer_size(kmer_size), quasiDico(quasiDico), threshold(threshold), size_window(size_window),   reads_sharing_kmer_2_positions(reads_sharing_kmer_2_positions), read_group(read_group){
 		model=Kmer<KMER_SPAN(1)>::ModelCanonical (kmer_size);
 	}
     
@@ -127,61 +127,61 @@ public:
 	}
     
 	void operator() (Sequence& seq){
-		if (not valid_sequence(seq, kmer_size)){return;}
-		    bool exists;
-		    associated_read_ids = {}; // list of the ids of reads from the bank where a kmer occurs
-		    reads_sharing_kmer_2_positions = {};  // store the position where a k-mer is seen in a read that can be potentially recruited
-		    read_group = {};
-		    itKmer->setData (seq.getData());
-		    uint i=0; // position on the read
-		    for (itKmer->first(); !itKmer->isDone(); itKmer->next()){
-			quasiDico->get_value((*itKmer)->value().getVal(), exists, associated_read_ids);
-			if(!exists) {++i; continue;}
-			for (uint r(0); r < associated_read_ids.size(); ++r){
-			    if (reads_sharing_kmer_2_positions.count(associated_read_ids[r])){
-				reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
-			    } else {
-				reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
-			    }
-			}
-			++i;
-		    }
-		    for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
-			vector<uint> presence(1000, 0);
-			uint count(0);
-			bool found(false);
-			for (uint j(0); j < r->second.size(); ++j){
-			    presence[r->second[j]] = 1;
-			}
-			for (uint w(0); w < presence.size(); ++w){
-			    if (w < size_window){
-				if (presence[w] == 1){
-				    ++count;
-				}
-			    } else {
-				uint start(size_window - w +1);
-				if (presence[start - 1] == 1){
-				    --count;
-				}
-				if (presence[start] == 1){
-				    ++count;
-				}
-			    }
-			    if (count / (size_window - kmer_size + 1) * 100 >= threshold){
-				found = true;
-				break;
-			    }
-			    
-			}
-			if (found){
-			    if (read_group.count(seq.getIndex())){
-				read_group[seq.getIndex()].push_back(r->first);
-			    } else {
-				vector <uint> v({r->first});
-				read_group[seq.getIndex()]=v;
-			    }
+	    if (not valid_sequence(seq, kmer_size)){return;}
+		bool exists;
+		associated_read_ids = {}; // list of the ids of reads from the bank where a kmer occurs
+		reads_sharing_kmer_2_positions = {};  // store the position where a k-mer is seen in a read that can be potentially recruited
+		//~ read_group = {};
+		itKmer->setData (seq.getData());
+		uint i=0; // position on the read
+		for (itKmer->first(); !itKmer->isDone(); itKmer->next()){
+		    quasiDico->get_value((*itKmer)->value().getVal(), exists, associated_read_ids);
+		    if(!exists) {++i; continue;}
+		    for (uint r(0); r < associated_read_ids.size(); ++r){
+			if (reads_sharing_kmer_2_positions.count(associated_read_ids[r])){
+			    reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
+			} else {
+			    reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
 			}
 		    }
+		    ++i;
+		}
+		for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
+		    vector<uint> presence(1000, 0);
+		    uint count(0);
+		    bool found(false);
+		    for (uint j(0); j < r->second.size(); ++j){
+			presence[r->second[j]] = 1;
+		    }
+		    for (uint w(0); w < presence.size(); ++w){
+			if (w < size_window){
+			    if (presence[w] == 1){
+				++count;
+			    }
+			} else {
+			    uint start(size_window - w +1);
+			    if (presence[start - 1] == 1){
+				--count;
+			    }
+			    if (presence[start] == 1){
+				++count;
+			    }
+			}
+			if (count / (size_window - kmer_size + 1) * 100 >= threshold){
+			    found = true;
+			    break;
+			}
+			
+		    }
+		    if (found){
+			if (read_group.count(seq.getIndex() + 1)){
+			    read_group[seq.getIndex() + 1].push_back(r->first);
+			} else {
+			    vector <uint> v({r->first});
+			    read_group[seq.getIndex() + 1]=v;
+			}
+		    }
+		}
 		    
 
 
@@ -230,6 +230,32 @@ public:
 		    //~ fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
 		    //~ synchro->unlock ();
 		//~ }
+
+
+
+
+	    string toPrint;
+	    bool read_id_printed = false; // Print (and sync file) only if the read is similar to something.
+	    for (auto read(read_group.begin()); read != read_group.end(); ++read){
+	    //~ float percentage_span_kmer = 100*std::get<1>(matched_read.second)/float(seq.getDataSize());
+	    //~ if (percentage_span_kmer >= threshold) {
+		if (not read->second.empty()){
+		     if (not read_id_printed){
+			read_id_printed = true;
+			toPrint = read->first + ":";
+		    }
+		    for (uint i(0); i < read->second.size(); ++i){
+			toPrint += to_string(read->second[i]) + " ";
+		    }
+		}
+    //	    fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
+	    }
+	    if (read_id_printed){
+		synchro->lock();
+		toPrint += "\n";
+		fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
+		synchro->unlock();
+	    }
 	}
 };
 
@@ -257,11 +283,11 @@ void SRC_linker_ram::parse_query_sequences (int threshold, uint size_window, con
         fwrite((message).c_str(), sizeof(char), message.size(), outFile);
         string progressMessage("Querying read set "+bank->getId());
         ProgressIterator<Sequence> itSeq (*bank, progressMessage.c_str());
-        //~ ISynchronizer* synchro = System::thread().newSynchronizer();
+        ISynchronizer* synchro = System::thread().newSynchronizer();
         Dispatcher dispatcher (nbCores, 1000);
 	std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;
 	std::unordered_map<uint64_t, vector<uint>> read_group;
-        dispatcher.iterate (itSeq, FunctorQuerySpanKmers(outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
+        dispatcher.iterate (itSeq, FunctorQuerySpanKmers(synchro, outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
         //~ delete synchro;
     }
     fclose (outFile);
