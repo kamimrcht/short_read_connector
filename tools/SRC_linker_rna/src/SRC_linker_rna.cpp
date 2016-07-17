@@ -82,9 +82,7 @@ void SRC_linker_rna::fill_quasi_dictionary (const int nbCores, const string& ban
 	LOCAL (bank);
 	ProgressIterator<Sequence> itSeq (*bank);
 	Dispatcher dispatcher (nbCores, 10000);
-	cout << "ok" << endl;
 	dispatcher.iterate (itSeq, FunctorIndexer(quasiDico, kmer_size));
-	cout << "ok2" << endl;
 }
 
 
@@ -105,8 +103,9 @@ public:
 	Kmer<KMER_SPAN(1)>::ModelCanonical model;
 	Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator* itKmer;
     
-	FunctorQuerySpanKmers(const FunctorQuerySpanKmers& lol)
+	FunctorQuerySpanKmers(const FunctorQuerySpanKmers& lol) // used by the dispatcher
 	{
+		size_window=lol.size_window;
 		synchro=lol.synchro;
 		outFile=lol.outFile;
 		kmer_size=lol.kmer_size;
@@ -121,7 +120,7 @@ public:
 	}
     
 	FunctorQuerySpanKmers (ISynchronizer* synchro, FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold, const uint size_window, std::unordered_map<uint64_t, vector<uint>>& reads_sharing_kmer_2_positions, std::unordered_map<uint64_t, vector<uint>> read_group)
-	: synchro(synchro), outFile(outFile), kmer_size(kmer_size), quasiDico(quasiDico), threshold(threshold), size_window(size_window),   reads_sharing_kmer_2_positions(reads_sharing_kmer_2_positions), read_group(read_group){
+	: synchro(synchro), outFile(outFile), kmer_size(kmer_size), quasiDico(quasiDico), threshold(threshold),  size_window(size_window), reads_sharing_kmer_2_positions(reads_sharing_kmer_2_positions), read_group(read_group){
 		model=Kmer<KMER_SPAN(1)>::ModelCanonical (kmer_size);
 	}
     
@@ -144,6 +143,7 @@ public:
 			    reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
 			} else {
 			    if (associated_read_ids[r] != seq.getIndex() + 1){  // we dont want to store the info about a read similar to itself
+				
 				reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
 			    }
 			}
@@ -164,7 +164,7 @@ public:
 				++count;
 			    }
 			} else {
-			    uint start(size_window - w +1);
+			    uint start(uint(w/size_window) * size_window - w + 1);
 			    if (presence[start - 1] == 1){
 				--count;
 			    }
@@ -178,6 +178,8 @@ public:
 			}
 			
 		    }
+		    
+
 		    if (found){
 			if (read_group.count(seq.getIndex() + 1)){
 			    read_group[seq.getIndex() + 1].push_back(r->first);
@@ -255,11 +257,12 @@ void SRC_linker_rna::parse_query_sequences (int threshold, uint size_window, con
     LOCAL (bank);
     ProgressIterator<Sequence> itSeq (*bank);
     ISynchronizer* synchro = System::thread().newSynchronizer();
-    Dispatcher dispatcher (nbCores, 10000);
+    Dispatcher dispatcher (1, 10000);
+    //~ Dispatcher dispatcher (nbCores, 10000);
     std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;
     std::unordered_map<uint64_t, vector<uint>> read_group;
     //~ dispatcher.iterate (itSeq, FunctorQuerySpanKmers(synchro,pFile, kmer_size,&quasiDico, threshold));
-    dispatcher.iterate (itSeq, FunctorQuerySpanKmers(synchro, outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
+    dispatcher.iterate(itSeq, FunctorQuerySpanKmers(synchro, outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
     fclose (outFile);
     delete synchro;
 }
@@ -284,10 +287,7 @@ void SRC_linker_rna::execute (){
 
 	int threshold = getInput()->getInt(STR_THRESHOLD);
 	uint size_window =  getInput()->getInt(STR_WINDOW);
-
-	cout << bankName << endl;
 	parse_query_sequences(threshold, size_window, nbCores, bankName);
-	cout << "OK" << endl;
 	getInfo()->add (1, &LibraryInfo::getInfo());
 	getInfo()->add (1, "input");
 	getInfo()->add (2, "Sequences bank",  "%s",  getInput()->getStr(STR_URI_BANK_INPUT).c_str());
