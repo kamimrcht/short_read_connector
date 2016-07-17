@@ -27,14 +27,12 @@ fi
 
 
 function help {
-echo "short_read_connector.sh - Compare reads from two read sets (distinct or not)"
+echo "short_read_connector.sh - Groups reads within a RNA read set."
 echo "Version "$version
-echo "Usage: sh short_read_connector.sh -b read_file_of_files -q read_file_of_files [OPTIONS]"
+echo "Usage: sh short_read_connector.sh -b read_file_of_files [OPTIONS]"
 echo  "MANDATORY:"
 echo  "	-b read_file_of_files for bank"
 echo  "	  Example: -b data/c1.fasta.gz"
-echo  "	-q read_file_of_files for query"
-echo  "	  Example: -q data/c2.fasta.gz"
 
 echo  "OPTIONS:"
 echo  "	-p prefix. All out files will start with this prefix. Default=\"short_read_connector_res\""
@@ -43,7 +41,11 @@ echo  "	-k value. Set the length of used kmers. Must fit the compiled value. Def
 echo  "	-f value. Fingerprint size. Size of the key associated to each indexed value, limiting false positives. Default=12"
 echo  "	-G value. gamma value. MPHF expert users parameter - Default=2"
 echo  "	-a: kmer abundance min (kmer from bank seen less than this value are not indexed). Default=2"
-echo  "	-s: Minimal percentage of shared kmer span for considering 2 reads as similar. The kmer span is the number of bases from the read query covered by a kmer shared with the target read. If a read of length 80 has a kmer-span of 60 with another read from the bank (of unkonwn size), then the percentage of shared kmer span is 75%. Default=75"
+echo  "	-s: Minimal percentage of shared kmer in a region for considering 2 reads in a same group. Default=75"
+
+echo  " -w: Region (putative exon) size. Default=80"
+
+
 echo  "	-t: number of thread used. Default=0"
 echo  "	-d:  use disk over RAM (slower and no impact with -c option)"
 echo  "	-c: use short_read_connector_counter (SRC_counter)"
@@ -59,6 +61,7 @@ abundance_min=2
 gamma=2
 fingerprint_size=12
 kmer_threshold=75
+window_size=80
 core_used=0
 prefix="short_read_connector_res"
 remove=1
@@ -68,7 +71,7 @@ countMode=0
 #######################################################################
 #################### GET OPTIONS                #######################
 #######################################################################
-while getopts "hgb:q:p:k:a:s:t:f:G:dcr" opt; do
+while getopts "hgb:q:p:k:a:s:w:t:f:G:dcr" opt; do
 case $opt in
 
 h)
@@ -141,6 +144,12 @@ echo "use kmer_threshold=$OPTARG" >&2
 kmer_threshold=$OPTARG
 ;;
 
+w)
+echo "use window_size=$OPTARG" >&2
+window_size=$OPTARG
+;;
+
+
 t)
 echo "use $OPTARG threads">&2
 core_used=$OPTARG
@@ -174,11 +183,6 @@ help
 exit 1
 fi
 
-if [ -z "${query_set}" ]; then
-	echo "You must provide a query read set (-q)"
-help
-exit 1
-fi
 
 out_dsk=${prefix}"_solid_kmers_k"${kmer_size}".h5"
 result_file=${prefix}".txt"
@@ -202,25 +206,22 @@ fi
 # Compare read sets
 
 
-# SRC_LINKER_RAM
+# SRC_LINKER_RNA
 if [ $diskMode -eq 0 ]; then
-	if [ $countMode -eq 0 ]; then
-		if [ $rnaMode -eq 0 ]; then
-    			cmd="${BIN_DIR}/SRC_linker_ram"
-		else    #SRC_linker_RNA
-			cmd="${BIN_DIR}/SRC_linker_rna"
-		fi
-    	else
-		# SRC_COUNTER
-       		cmd="${BIN_DIR}/SRC_counter"
-       fi
-else
+	cmd="${BIN_DIR}/SRC_linker_rna"
+	# adding options
+	cmd="${cmd} -graph ${out_dsk}  -bank ${bank_set}  -out ${result_file} -kmer_threshold ${kmer_threshold} -window_size ${window_size} -fingerprint_size ${fingerprint_size} -core ${core_used} -gamma ${gamma}"
+
+#else
 	# SRC_LINKER_DISK
-	cmd="${BIN_DIR}/SRC_linker_disk"
+#	cmd="${BIN_DIR}/SRC_linker_disk"
+	# adding options
+#	cmd="${cmd} -graph ${out_dsk}  -bank ${bank_set} -query{query_set} -out ${result_file} -kmer_threshold ${kmer_threshold} -fingerprint_size ${fingerprint_size} -core ${core_used} -gamma ${gamma}"
+
 fi
 
 # adding options
-cmd="${cmd} -graph ${out_dsk}  -bank ${bank_set} -query ${query_set} -out ${result_file} -kmer_threshold ${kmer_threshold} -fingerprint_size ${fingerprint_size} -core ${core_used} -gamma ${gamma}"
+#cmd="${cmd} -graph ${out_dsk}  -bank ${bank_set} -query ${query_set} -out ${result_file} -kmer_threshold ${kmer_threshold} -fingerprint_size ${fingerprint_size} -core ${core_used} -gamma ${gamma}"
 
 echo ${cmd}
 ${cmd}
