@@ -94,8 +94,8 @@ public:
 	FILE* outFile;
 	int kmer_size;
 	quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t>* quasiDico;
-	std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;  // store the position where a k-mer is seen in a read that can be potentially recruited
-	std::unordered_map<uint64_t, vector<uint>> read_group;  // for a read, get all reads sharing at least a window
+	std::unordered_map<uint, vector<uint>> reads_sharing_kmer_2_positions;  // store the position where a k-mer is seen in a read that can be potentially recruited
+	std::unordered_map<uint, vector<uint>> read_group;  // for a read, get all reads sharing at least a window
 	uint threshold;
 	uint size_window;
 	vector<u_int32_t> associated_read_ids;
@@ -134,7 +134,8 @@ public:
 		reads_sharing_kmer_2_positions = {};  // store the position where a k-mer is seen in a read that can be potentially recruited
 		//~ read_group = {};
 		itKmer->setData (seq.getData());
-		uint i=0; // position on the read
+		uint i(0); // position on the read
+		uint seqIndex(seq.getIndex() + 1);
 		for (itKmer->first(); !itKmer->isDone(); itKmer->next()){
 		    quasiDico->get_value((*itKmer)->value().getVal(), exists, associated_read_ids);
 		    if(!exists) {++i; continue;}
@@ -143,7 +144,7 @@ public:
 			    reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
 			} else {
 			    if (associated_read_ids[r] != seq.getIndex() + 1){  // we dont want to store the info about a read similar to itself
-				
+				//~ cout << associated_read_ids[r] << endl;
 				reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
 			    }
 			}
@@ -178,45 +179,39 @@ public:
 			}
 			
 		    }
-		    
-
 		    if (found){
-			if (read_group.count(seq.getIndex() + 1)){
-			    read_group[seq.getIndex() + 1].push_back(r->first);
+			if (read_group.count(seqIndex)){
+			    read_group[seqIndex].push_back(r->first);
 			} else {
 			    vector <uint> v({r->first});
-			    read_group[seq.getIndex() + 1]=v;
+			    read_group[seqIndex] = v;
 			}
 		    }
 		}
 	    string toPrint;
 	    bool read_id_printed = false; // Print (and sync file) only if the read is similar to something.
-	    for (auto read(read_group.begin()); read != read_group.end(); ++read){
-	    //~ float percentage_span_kmer = 100*std::get<1>(matched_read.second)/float(seq.getDataSize());
-	    //~ if (percentage_span_kmer >= threshold) {
-		if (not read->second.empty()){
-		     if (not read_id_printed){
-			read_id_printed = true;
-			toPrint = read->first + ":";
-		    }
-		    for (uint i(0); i < read->second.size(); ++i){
-			toPrint += to_string(read->second[i]) + " ";
-		    }
+	    if (not read_group[seqIndex].empty()){
+		if (not read_id_printed){
+		    read_id_printed = true;
+		    toPrint = to_string(seqIndex) + ":";
 		}
-    //	    fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
-	    }
-	    if (read_id_printed){
-		synchro->lock();
-		toPrint += "\n";
-		fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
-		synchro->unlock();
+		for (uint i(0); i < read_group[seqIndex].size(); ++i){
+		    toPrint += to_string(read_group[seqIndex][i]) + " ";
+		}
+		if (read_id_printed){
+		    synchro->lock();
+		    toPrint += "\n";
+		    fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
+		    synchro->unlock();
+		}
 	    }
 	}
 };
 
 
 
-void SRC_linker_rna::parse_query_sequences (int threshold, uint size_window, const int nbCores, const string& bankName){
+
+void SRC_linker_rna::parse_query_sequences(int threshold, uint size_window, const int nbCores, const string& bankName){
     //~ cout << bankName << endl;
     //~ BankAlbum banks (bankName);
     //~ cout << "nn" << endl;
