@@ -13,6 +13,7 @@ static const char* STR_URI_QUERY_INPUT = "-query";
 static const char* STR_FINGERPRINT = "-fingerprint_size";
 static const char* STR_GAMMA = "-gamma";
 static const char* STR_THRESHOLD = "-kmer_threshold";
+static const char* STR_WINDOW = "-window_size";
 static const char* STR_OUT_FILE = "-out";
 static const char* STR_CORE = "-core";
 
@@ -23,7 +24,8 @@ SRC_linker_ram::SRC_linker_ram ()  : Tool ("SRC_linker_ram"){
 	getParser()->push_back (new OptionOneParam (STR_URI_BANK_INPUT, "bank input",    true));
 	getParser()->push_back (new OptionOneParam (STR_URI_QUERY_INPUT, "query input",    true));
 	getParser()->push_back (new OptionOneParam (STR_OUT_FILE, "output_file",    true));
-	getParser()->push_back (new OptionOneParam (STR_THRESHOLD, "Minimal percentage of shared kmer span for considering 2 reads as similar. The kmer span is the number of bases from the read query covered by a kmer shared with the target read. If a read of length 80 has a kmer-span of 60 with another read from the bank (of unkonwn size), then the percentage of shared kmer span is 75%.",    false, "75"));
+	getParser()->push_back (new OptionOneParam (STR_THRESHOLD, "Minimal percentage of shared kmer in a region for considering 2 reads in a same group.",    false, "75"));
+	getParser()->push_back (new OptionOneParam (STR_WINDOW, "Size of a region (putative exon).",    false, "80"));
 	getParser()->push_back (new OptionOneParam (STR_GAMMA, "gamma value",    false, "2"));
 	getParser()->push_back (new OptionOneParam (STR_FINGERPRINT, "fingerprint size",    false, "8"));
 	getParser()->push_back (new OptionOneParam (STR_CORE, "Number of thread",    false, "1"));
@@ -109,13 +111,15 @@ public:
 		quasiDico=lol.quasiDico;
 		threshold=lol.threshold;
 		associated_read_ids=lol.associated_read_ids;
+		reads_sharing_kmer_2_positions = lol.reads_sharing_kmer_2_positions;
+		read_group =  lol.read_group;
 		//~ similar_read_ids_position_count=lol.similar_read_ids_position_count;
 		model=lol.model;
 		itKmer = new Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator (model);
 	}
     
-	FunctorQuerySpanKmers (ISynchronizer* synchro, FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold)
-	:  outFile(outFile), kmer_size(kmer_size), quasiDico(quasiDico), threshold(threshold) {
+	FunctorQuerySpanKmers (FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold, const uint size_window, std::unordered_map<uint64_t, vector<uint>>& reads_sharing_kmer_2_positions, std::unordered_map<uint64_t, vector<uint>> read_group)
+	:  outFile(outFile), kmer_size(kmer_size), quasiDico(quasiDico), threshold(threshold), size_window(size_window),   reads_sharing_kmer_2_positions(reads_sharing_kmer_2_positions), read_group(read_group){
 		model=Kmer<KMER_SPAN(1)>::ModelCanonical (kmer_size);
 	}
     
@@ -231,7 +235,7 @@ public:
 
 
 
-void SRC_linker_ram::parse_query_sequences (int threshold, const int nbCores){
+void SRC_linker_ram::parse_query_sequences (int threshold, uint size_window, const int nbCores){
     BankAlbum banks (getInput()->getStr(STR_URI_QUERY_INPUT));
     const std::vector<IBank*>& banks_of_queries = banks.getBanks();
     const int number_of_read_sets = banks_of_queries.size();
@@ -253,12 +257,14 @@ void SRC_linker_ram::parse_query_sequences (int threshold, const int nbCores){
         fwrite((message).c_str(), sizeof(char), message.size(), outFile);
         string progressMessage("Querying read set "+bank->getId());
         ProgressIterator<Sequence> itSeq (*bank, progressMessage.c_str());
-        ISynchronizer* synchro = System::thread().newSynchronizer();
+        //~ ISynchronizer* synchro = System::thread().newSynchronizer();
         Dispatcher dispatcher (nbCores, 1000);
-        dispatcher.iterate (itSeq, FunctorQuerySpanKmers(synchro,outFile, kmer_size,&quasiDico, threshold));
-        delete synchro;
+	std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;
+	std::unordered_map<uint64_t, vector<uint>> read_group;
+        dispatcher.iterate (itSeq, FunctorQuerySpanKmers(outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
+        //~ delete synchro;
     }
-	fclose (outFile);
+    fclose (outFile);
     
     
 //	IBank* bank = Bank::open (getInput()->getStr(STR_URI_QUERY_INPUT));
@@ -294,7 +300,8 @@ void SRC_linker_ram::execute (){
 	fill_quasi_dictionary(nbCores);
 
 	int threshold = getInput()->getInt(STR_THRESHOLD);
-	parse_query_sequences(threshold, nbCores);
+	uint size_window =  getInput()->getInt(STR_WINDOW);
+	parse_query_sequences(threshold, size_window, nbCores);
 
 	getInfo()->add (1, &LibraryInfo::getInfo());
 	getInfo()->add (1, "input");
