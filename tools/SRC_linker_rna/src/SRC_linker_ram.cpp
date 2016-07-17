@@ -144,35 +144,36 @@ public:
 		    }
 		    for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
 			vector<uint> presence(1000, 0);
-			uint window(0), count(0);
+			uint count(0);
 			bool found(false);
 			for (uint j(0); j < r->second.size(); ++j){
 			    presence[r->second[j]] = 1;
 			}
-			for (uint n(0); n < presence.size(); ++n){
-			    while (window <= size_window and not found){
-				if (window == size_window){
-				    count = 0;
-				    window = 0;
-				} else {
-				    if (count >= threshold){
-					found = true;
-					break;
-				    }
-				    if (presence[n] == 1){
-					++ count;
-				    }
-				    ++window;
+			for (uint w(0); w < presence.size(); ++w){
+			    if (w < size_window){
+				if (presence[w] == 1){
+				    ++count;
+				}
+			    } else {
+				uint start(size_window - w +1);
+				if (presence[start - 1] == 1){
+				    --count;
+				}
+				if (presence[start] == 1){
+				    ++count;
 				}
 			    }
+			    if (count >= threshold){
+				found = true;
+				break;
+			    }
+			    
 			}
 			if (found){
 			    if (read_group.count(seq.getIndex())){
 				read_group[seq.getIndex()].push_back(r->first);
 			    } else {
-				//~ seq.getIndex()
 				vector <uint> v({r->first});
-				//~ read_group.insert(seq.getIndex(), v);
 				read_group[seq.getIndex()]=v;
 			    }
 			}
