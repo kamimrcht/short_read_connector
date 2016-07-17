@@ -88,88 +88,143 @@ void SRC_linker_ram::fill_quasi_dictionary (const int nbCores){
 class FunctorQuerySpanKmers // FunctorQuery used after claires discussion: number of positions covered by a shared kmer.
 {
 public:
-	ISynchronizer* synchro;
+	//~ ISynchronizer* synchro;
 	FILE* outFile;
 	int kmer_size;
 	quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t>* quasiDico;
-	int threshold;
+	std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;  // store the position where a k-mer is seen in a read that can be potentially recruited
+	std::unordered_map<uint64_t, vector<uint>> read_group;  // for a read, get all reads sharing at least a window
+	uint threshold;
+	uint size_window;
 	vector<u_int32_t> associated_read_ids;
-	std::unordered_map<u_int32_t, std::pair <u_int,u_int>> similar_read_ids_position_count; // each bank read id --> couple<next viable position (without overlap), number of shared kmers>
+	//~ std::unordered_map<u_int32_t, std::pair <u_int,u_int>> similar_read_ids_position_count; // each bank read id --> couple<next viable position (without overlap), number of shared kmers>
 	Kmer<KMER_SPAN(1)>::ModelCanonical model;
 	Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator* itKmer;
     
 	FunctorQuerySpanKmers(const FunctorQuerySpanKmers& lol)
 	{
-		synchro=lol.synchro;
+		//~ synchro=lol.synchro;
 		outFile=lol.outFile;
 		kmer_size=lol.kmer_size;
 		quasiDico=lol.quasiDico;
 		threshold=lol.threshold;
 		associated_read_ids=lol.associated_read_ids;
-		similar_read_ids_position_count=lol.similar_read_ids_position_count;
+		//~ similar_read_ids_position_count=lol.similar_read_ids_position_count;
 		model=lol.model;
 		itKmer = new Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator (model);
 	}
     
 	FunctorQuerySpanKmers (ISynchronizer* synchro, FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold)
-	: synchro(synchro), outFile(outFile), kmer_size(kmer_size), quasiDico(quasiDico), threshold(threshold) {
+	:  outFile(outFile), kmer_size(kmer_size), quasiDico(quasiDico), threshold(threshold) {
 		model=Kmer<KMER_SPAN(1)>::ModelCanonical (kmer_size);
-		// itKmer = new Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator (model);
 	}
     
 	FunctorQuerySpanKmers () {
 	}
     
 	void operator() (Sequence& seq){
-		if(not valid_sequence(seq, kmer_size)){return;}
-		bool exists;
-		associated_read_ids={}; // list of the ids of reads from the bank where a kmer occurs
- 		similar_read_ids_position_count={}; // tmp list of couples <last used position, kmer spanning>
-		itKmer->setData (seq.getData());
-		
-//        if(repeated_kmers(model, *itKmer)){return;}
-        u_int i=0; // position on the read
-		for (itKmer->first(); !itKmer->isDone(); itKmer->next()){
-			quasiDico->get_value((*itKmer)->value().getVal(),exists,associated_read_ids);
-			if(!exists) {++i;continue;}
-			for(auto &read_id: associated_read_ids){
-				std::unordered_map<u_int32_t, std::pair <u_int,u_int>>::const_iterator element = similar_read_ids_position_count.find(read_id);
-				if(element == similar_read_ids_position_count.end()) {// not inserted yet:
-					similar_read_ids_position_count[read_id]=std::make_pair(i, kmer_size);
-				}else{  // a kmer is already shared with this read
-					std::pair <int,int> lastpos_spankmer = (element->second);
-                    // update spanning, up to a kmer size
-                    if ((i-lastpos_spankmer.first)<kmer_size)   lastpos_spankmer.second += i-lastpos_spankmer.first;
-                    else                                        lastpos_spankmer.second += kmer_size;
-                    lastpos_spankmer.first=i;                                            // update last position of a shared kmer with this read
-                    similar_read_ids_position_count[read_id] = lastpos_spankmer;
-				}
+		if (not valid_sequence(seq, kmer_size)){return;}
+		    bool exists;
+		    associated_read_ids = {}; // list of the ids of reads from the bank where a kmer occurs
+		    reads_sharing_kmer_2_positions = {};  // store the position where a k-mer is seen in a read that can be potentially recruited
+		    read_group = {};
+		    itKmer->setData (seq.getData());
+		    uint i=0; // position on the read
+		    for (itKmer->first(); !itKmer->isDone(); itKmer->next()){
+			quasiDico->get_value((*itKmer)->value().getVal(), exists, associated_read_ids);
+			if(!exists) {++i; continue;}
+			for (uint r(0); r < associated_read_ids.size(); ++r){
+			    if (reads_sharing_kmer_2_positions.count(associated_read_ids[r])){
+				reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
+			    } else {
+				reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
+			    }
 			}
 			++i;
-		}
-		string toPrint;
-		bool read_id_printed=false; // Print (and sync file) only if the read is similar to something.
-		for (auto &matched_read:similar_read_ids_position_count){
-            float percentage_span_kmer = 100*std::get<1>(matched_read.second)/float(seq.getDataSize());
-			if (percentage_span_kmer >= threshold) {
-				if (not read_id_printed){
-					read_id_printed=true;
-//					synchro->lock();
-					toPrint=to_string(seq.getIndex()+1)+":";
-//					fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
-				}
-				toPrint+=to_string(matched_read.first)+"-"+to_string(std::get<1>(matched_read.second))+"-"+to_string(float(percentage_span_kmer))+" ";
-//				fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
+		    }
+		    for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
+			vector<uint> presence(1000, 0);
+			uint window(0), count(0);
+			bool found(false);
+			for (uint j(0); j < r->second.size(); ++j){
+			    presence[r->second[j]] = 1;
 			}
+			for (uint n(0); n < presence.size(); ++n){
+			    while (window <= size_window and not found){
+				if (window == size_window){
+				    count = 0;
+				    window = 0;
+				} else {
+				    if (count >= threshold){
+					found = true;
+					break;
+				    }
+				    if (presence[n] == 1){
+					++ count;
+				    }
+				    ++window;
+				}
+			    }
+			}
+			if (found){
+			    if (read_group.count(seq.getIndex())){
+				read_group[seq.getIndex()].push_back(r->first);
+			    } else {
+				//~ seq.getIndex()
+				vector <uint> v({r->first});
+				//~ read_group.insert(seq.getIndex(), v);
+				read_group[seq.getIndex()]=v;
+			    }
+			}
+		    }
+		    
+
+
+
+		
+		//~ bool exists;
+		//~ associated_read_ids={}; // list of the ids of reads from the bank where a kmer occurs
+ 		//~ similar_read_ids_position_count={}; // tmp list of couples <last used position, kmer spanning>
+		//~ itKmer->setData (seq.getData());
+		//~ u_int i=0; // position on the read
+		//~ for (itKmer->first(); !itKmer->isDone(); itKmer->next()){
+			//~ quasiDico->get_value((*itKmer)->value().getVal(),exists,associated_read_ids);
+			//~ if(!exists) {++i;continue;}
+			//~ for(auto &read_id: associated_read_ids){
+				//~ std::unordered_map<u_int32_t, std::pair <u_int,u_int>>::const_iterator element = similar_read_ids_position_count.find(read_id);
+				//~ if(element == similar_read_ids_position_count.end()) {// not inserted yet:
+					//~ similar_read_ids_position_count[read_id]=std::make_pair(i, kmer_size);
+				//~ }else{  // a kmer is already shared with this read
+					//~ std::pair <int,int> lastpos_spankmer = (element->second);
+                    //~ // update spanning, up to a kmer size
+                    //~ if ((i-lastpos_spankmer.first)<kmer_size)   lastpos_spankmer.second += i-lastpos_spankmer.first;
+                    //~ else                                        lastpos_spankmer.second += kmer_size;
+                    //~ lastpos_spankmer.first=i;                                            // update last position of a shared kmer with this read
+                    //~ similar_read_ids_position_count[read_id] = lastpos_spankmer;
+				//~ }
+			//~ }
+			//~ ++i;
+		//~ }
+		//~ string toPrint;
+		//~ bool read_id_printed=false; // Print (and sync file) only if the read is similar to something.
+		//~ for (auto &matched_read:similar_read_ids_position_count){
+			//~ float percentage_span_kmer = 100*std::get<1>(matched_read.second)/float(seq.getDataSize());
+			//~ if (percentage_span_kmer >= threshold) {
+				//~ if (not read_id_printed){
+					//~ read_id_printed=true;
+					//~ toPrint=to_string(seq.getIndex()+1)+":";
+				//~ }
+				//~ toPrint+=to_string(matched_read.first)+"-"+to_string(std::get<1>(matched_read.second))+"-"+to_string(float(percentage_span_kmer))+" ";
+//~ //				fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
+			//~ }
             
-		}
-		if(read_id_printed){
-            synchro->lock();
-            toPrint+="\n";
-            fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
-//			fwrite("\n", sizeof(char), 1, outFile);
-			synchro->unlock ();
-		}
+		//~ }
+		//~ if(read_id_printed){
+		    //~ synchro->lock();
+		    //~ toPrint+="\n";
+		    //~ fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
+		    //~ synchro->unlock ();
+		//~ }
 	}
 };
 
