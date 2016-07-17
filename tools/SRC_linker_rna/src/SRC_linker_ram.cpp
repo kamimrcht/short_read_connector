@@ -167,7 +167,7 @@ public:
 				    ++count;
 				}
 			    }
-			    if (count >= threshold){
+			    if (count / (size_window - kmer_size + 1) * 100 >= threshold){
 				found = true;
 				break;
 			    }
