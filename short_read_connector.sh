@@ -47,6 +47,7 @@ echo  "	-s: Minimal percentage of shared kmer span for considering 2 reads as si
 echo  "	-t: number of thread used. Default=0"
 echo  "	-d:  use disk over RAM (slower and no impact with -c option)"
 echo  "	-c: use short_read_connector_counter (SRC_counter)"
+echo  " -r: use short_read_connector_RNA (SRC_linker_RNA)"
 }
 
 
@@ -67,7 +68,7 @@ countMode=0
 #######################################################################
 #################### GET OPTIONS                #######################
 #######################################################################
-while getopts "hgb:q:p:k:a:s:t:f:G:dc" opt; do
+while getopts "hgb:q:p:k:a:s:t:f:G:dcr" opt; do
 case $opt in
 
 h)
@@ -90,6 +91,14 @@ c)
 echo "use SRC_counter"
 countMode=1
 ;;
+
+
+r)
+
+echo "use SRC_linker_RNA"
+rnaMode=1
+;;
+
 
 f)
 echo "use fingerprint size: $OPTARG" >&2
@@ -196,10 +205,14 @@ fi
 # SRC_LINKER_RAM
 if [ $diskMode -eq 0 ]; then
 	if [ $countMode -eq 0 ]; then
-    	cmd="${BIN_DIR}/SRC_linker_ram"
-    else
+		if [ $rnaMode -eq 0 ]; then
+    			cmd="${BIN_DIR}/SRC_linker_ram"
+		else    #SRC_linker_RNA
+			cmd="${BIN_DIR}/SRC_linker_rna"
+		fi
+    	else
 		# SRC_COUNTER
-       	cmd="${BIN_DIR}/SRC_counter"
+       		cmd="${BIN_DIR}/SRC_counter"
        fi
 else
 	# SRC_LINKER_DISK
