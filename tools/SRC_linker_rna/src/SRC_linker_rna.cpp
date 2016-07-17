@@ -75,14 +75,16 @@ struct FunctorIndexer{
 };
 
 
-void SRC_linker_rna::fill_quasi_dictionary (const int nbCores){
+void SRC_linker_rna::fill_quasi_dictionary (const int nbCores, const string& bankName){
 	bool exists;
-	IBank* bank = Bank::open (getInput()->getStr(STR_URI_BANK_INPUT));
+	IBank* bank = Bank::open (bankName);
 	cout<<"Index "<<kmer_size<<"-mers from bank "<<getInput()->getStr(STR_URI_BANK_INPUT)<<endl;
 	LOCAL (bank);
 	ProgressIterator<Sequence> itSeq (*bank);
 	Dispatcher dispatcher (nbCores, 10000);
+	cout << "ok" << endl;
 	dispatcher.iterate (itSeq, FunctorIndexer(quasiDico, kmer_size));
+	cout << "ok2" << endl;
 }
 
 
@@ -212,8 +214,10 @@ public:
 
 
 
-void SRC_linker_rna::parse_query_sequences (int threshold, uint size_window, const int nbCores){
-    BankAlbum banks (getInput()->getStr(STR_URI_BANK_INPUT));
+void SRC_linker_rna::parse_query_sequences (int threshold, uint size_window, const int nbCores, const string& bankName){
+    cout << "yy" << endl;
+    BankAlbum banks (bankName);
+    cout << "nn" << endl;
     const std::vector<IBank*>& banks_of_queries = banks.getBanks();
     const int number_of_read_sets = banks_of_queries.size();
     
@@ -263,7 +267,7 @@ void SRC_linker_rna::parse_query_sequences (int threshold, uint size_window, con
 void SRC_linker_rna::execute (){
 	int nbCores = getInput()->getInt(STR_CORE);
 	int fingerprint_size = getInput()->getInt(STR_FINGERPRINT);
-    gamma_value = getInput()->getInt(STR_GAMMA);
+	gamma_value = getInput()->getInt(STR_GAMMA);
 	// IMPORTANT NOTE:
 	// Actually, during the filling of the dictionary values, one may fall on non solid non indexed kmers
 	// that are quasi dictionary false positives (ven with a non null fingerprint. This means that one nevers knows in advance how much
@@ -274,16 +278,19 @@ void SRC_linker_rna::execute (){
 	//		fingerprint_size=0;
 	cout<<"fingerprint = "<<fingerprint_size<<endl;
 	create_quasi_dictionary(fingerprint_size, nbCores);
-	fill_quasi_dictionary(nbCores);
+	string bankName(getInput()->getStr(STR_URI_BANK_INPUT));
+	fill_quasi_dictionary(nbCores, bankName);
 
 	int threshold = getInput()->getInt(STR_THRESHOLD);
 	uint size_window =  getInput()->getInt(STR_WINDOW);
-	parse_query_sequences(threshold, size_window, nbCores);
 
+	cout << "okkkk" << endl;
+	parse_query_sequences(threshold, size_window, nbCores, bankName);
+	cout << "OK" << endl;
 	getInfo()->add (1, &LibraryInfo::getInfo());
 	getInfo()->add (1, "input");
 	getInfo()->add (2, "Sequences bank",  "%s",  getInput()->getStr(STR_URI_BANK_INPUT).c_str());
-	//~ getInfo()->add (2, "Query bank",  "%s",  getInput()->getStr(STR_URI_QUERY_INPUT).c_str());
+	//~ getInfo()->add (2, "Query bank",  "%s",  getInput()->getStr(STR_URI_BANK_INPUT).c_str());
     getInfo()->add (2, "Kmer size",  "%d",  kmer_size);
 	getInfo()->add (2, "Fingerprint size",  "%d",  fingerprint_size);
     getInfo()->add (2, "gamma",  "%d",  gamma_value);
