@@ -141,7 +141,9 @@ public:
 			if (reads_sharing_kmer_2_positions.count(associated_read_ids[r])){
 			    reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
 			} else {
-			    reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
+			    if (associated_read_ids[r] != seq.getIndex() + 1){  // we dont want to store the info about a read similar to itself
+				reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
+			    }
 			}
 		    }
 		    ++i;

@@ -43,7 +43,7 @@ class SRC_linker_rna : public Tool
 private:
 	quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t > quasiDico;
 	u_int64_t nbSolidKmers;
-    int gamma_value;
+	int gamma_value;
 	int kmer_size;
 	static const size_t span = KMER_SPAN(1);
 
