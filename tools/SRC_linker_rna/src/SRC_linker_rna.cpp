@@ -86,7 +86,7 @@ void SRC_linker_rna::fill_quasi_dictionary (const int nbCores, const string& ban
 
 
 
-class FunctorQuerySpanKmers // FunctorQuery used after claires discussion: number of positions covered by a shared kmer.
+class FunctorQueryMatchingRegions // FunctorQuery used after claires discussion: number of positions covered by a shared kmer.
 {
 public:
 	ISynchronizer* synchro;
@@ -101,7 +101,7 @@ public:
 	Kmer<KMER_SPAN(1)>::ModelCanonical model;
 	Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator* itKmer;
     
-	FunctorQuerySpanKmers(const FunctorQuerySpanKmers& lol) // used by the dispatcher
+	FunctorQueryMatchingRegions(const FunctorQueryMatchingRegions& lol) // used by the dispatcher
 	{
 		size_window=lol.size_window;
 		synchro=lol.synchro;
@@ -116,12 +116,12 @@ public:
 		itKmer = new Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator (model);
 	}
     
-	FunctorQuerySpanKmers (ISynchronizer* synchro, FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold, const uint size_window, std::unordered_map<uint64_t, vector<uint>>& reads_sharing_kmer_2_positions, std::unordered_map<uint64_t, vector<readGrouped>> read_group)
+	FunctorQueryMatchingRegions (ISynchronizer* synchro, FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold, const uint size_window, std::unordered_map<uint64_t, vector<uint>>& reads_sharing_kmer_2_positions, std::unordered_map<uint64_t, vector<readGrouped>> read_group)
 	: synchro(synchro), outFile(outFile), kmer_size(kmer_size), quasiDico(quasiDico), threshold(threshold),  size_window(size_window), reads_sharing_kmer_2_positions(reads_sharing_kmer_2_positions), read_group(read_group){
 		model=Kmer<KMER_SPAN(1)>::ModelCanonical (kmer_size);
 	}
     
-	FunctorQuerySpanKmers (){
+	FunctorQueryMatchingRegions (){
 	}
     
 	void operator() (Sequence& seq){
@@ -238,10 +238,11 @@ void SRC_linker_rna::parse_query_sequences(int threshold, uint size_window, cons
     //~ Dispatcher dispatcher (nbCores, 10000);
     std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;
     std::unordered_map<uint64_t, vector<readGrouped>> read_group;
-    dispatcher.iterate(itSeq, FunctorQuerySpanKmers(synchro, outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
+    dispatcher.iterate(itSeq, FunctorQueryMatchingRegions(synchro, outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
     fclose (outFile);
     delete synchro;
 }
+
 
 
 void SRC_linker_rna::execute (){
@@ -260,7 +261,6 @@ void SRC_linker_rna::execute (){
 	create_quasi_dictionary(fingerprint_size, nbCores);
 	string bankName(getInput()->getStr(STR_URI_BANK_INPUT));
 	fill_quasi_dictionary(nbCores, bankName);
-
 	int threshold = getInput()->getInt(STR_THRESHOLD);
 	uint size_window =  getInput()->getInt(STR_WINDOW);
 	parse_query_sequences(threshold, size_window, nbCores, bankName);
