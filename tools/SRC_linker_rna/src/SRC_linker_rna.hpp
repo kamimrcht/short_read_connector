@@ -37,6 +37,11 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+struct readGrouped{
+	uint64_t index;
+	bool confirmed;
+};
+
 class SRC_linker_rna : public Tool
 {
 	
@@ -47,12 +52,14 @@ private:
 	int kmer_size;
 	static const size_t span = KMER_SPAN(1);
 
+
 public:
 
     // Constructor
 	SRC_linker_rna ();
 
     // Actual job done by the tool is here
+
     void execute ();
 
     void create_quasi_dictionary(int fingerprint_size, int nbCores);
@@ -60,6 +67,8 @@ public:
     void fill_quasi_dictionary(const int nbCores, const string& bankName);
 
     void parse_query_sequences(int threshold, uint size_window, const int nbCores, const string& bankName);
+    
+    void print_results(FILE* outFile, std::unordered_map<uint64_t, vector<readGrouped>>& read_group);
 };
 
 /********************************************************************************/

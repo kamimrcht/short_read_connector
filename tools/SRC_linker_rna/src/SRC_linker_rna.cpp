@@ -64,8 +64,6 @@ struct FunctorIndexer{
 		Kmer<KMER_SPAN(1)>::ModelCanonical model (kmer_size);
 		Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator itKmer (model);
 		itKmer.setData (seq.getData());
-        
-//        if(repeated_kmers(model, itKmer)){return;}
 		u_int32_t read_id = static_cast<u_int32_t>(seq.getIndex()+1);
 		for (itKmer.first(); !itKmer.isDone(); itKmer.next()){
 			// Adding the read id to the list of ids associated to this kmer.note that the kmer may not exist in the dictionary if it was under the solidity threshold.in this case, nothing is done
@@ -73,6 +71,7 @@ struct FunctorIndexer{
 		}
 	}
 };
+
 
 
 void SRC_linker_rna::fill_quasi_dictionary (const int nbCores, const string& bankName){
@@ -94,12 +93,11 @@ public:
 	FILE* outFile;
 	int kmer_size;
 	quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t>* quasiDico;
-	std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;  // store the position where a k-mer is seen in a read that can be potentially recruited
-	std::unordered_map<uint64_t, vector<uint>> read_group;  // for a read, get all reads sharing at least a window
+	std::unordered_map<uint64_t, vector<uint32_t>> reads_sharing_kmer_2_positions;  // store the position where a k-mer is seen in a read that can be potentially recruited
+	std::unordered_map<uint64_t, vector<readGrouped>> read_group;  // for a read, get all reads sharing at least a window
 	uint threshold;
 	uint size_window;
-	vector<u_int32_t> associated_read_ids;
-	//~ std::unordered_map<u_int32_t, std::pair <u_int,u_int>> similar_read_ids_position_count; // each bank read id --> couple<next viable position (without overlap), number of shared kmers>
+	vector<uint32_t> associated_read_ids;
 	Kmer<KMER_SPAN(1)>::ModelCanonical model;
 	Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator* itKmer;
     
@@ -114,17 +112,16 @@ public:
 		associated_read_ids=lol.associated_read_ids;
 		reads_sharing_kmer_2_positions = lol.reads_sharing_kmer_2_positions;
 		read_group =  lol.read_group;
-		//~ similar_read_ids_position_count=lol.similar_read_ids_position_count;
 		model=lol.model;
 		itKmer = new Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator (model);
 	}
     
-	FunctorQuerySpanKmers (ISynchronizer* synchro, FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold, const uint size_window, std::unordered_map<uint64_t, vector<uint>>& reads_sharing_kmer_2_positions, std::unordered_map<uint64_t, vector<uint>> read_group)
+	FunctorQuerySpanKmers (ISynchronizer* synchro, FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold, const uint size_window, std::unordered_map<uint64_t, vector<uint>>& reads_sharing_kmer_2_positions, std::unordered_map<uint64_t, vector<readGrouped>> read_group)
 	: synchro(synchro), outFile(outFile), kmer_size(kmer_size), quasiDico(quasiDico), threshold(threshold),  size_window(size_window), reads_sharing_kmer_2_positions(reads_sharing_kmer_2_positions), read_group(read_group){
 		model=Kmer<KMER_SPAN(1)>::ModelCanonical (kmer_size);
 	}
     
-	FunctorQuerySpanKmers () {
+	FunctorQuerySpanKmers (){
 	}
     
 	void operator() (Sequence& seq){
@@ -169,7 +166,7 @@ public:
 			    if (presence[start - 1] == 1){
 				--count;
 			    }
-			    if (presence[start] == 1){
+			    if (presence[w] == 1){
 				++count;
 			    }
 			}
@@ -180,11 +177,23 @@ public:
 			
 		    }
 		    if (found){
+			bool confirm(false);
+			if (read_group.count(r->first)){
+			    for (uint rr(0); rr < read_group[r->first].size(); ++rr){
+				if (read_group[r->first][rr].index == seqIndex){ // the two reads have been found matching
+				    read_group[r->first][rr].confirmed = true;
+				    confirm = true;
+				    break;
+				}
+			    }
+			}
+			cout << confirm << endl;
 			if (read_group.count(seqIndex)){
-			    read_group[seqIndex].push_back(r->first);
+			    read_group[seqIndex].push_back({r->first, confirm});
 			} else {
-			    vector <uint> v({r->first});
-			    read_group[seqIndex] = v;
+			    readGrouped rg({r->first, confirm});
+			    vector <readGrouped> v({rg});
+			    read_group[seqIndex] = {v};
 			}
 		    }
 		}
@@ -196,7 +205,9 @@ public:
 		    toPrint = to_string(seqIndex) + ":";
 		}
 		for (uint i(0); i < read_group[seqIndex].size(); ++i){
-		    toPrint += to_string(read_group[seqIndex][i]) + " ";
+		    //~ if (read_group[seqIndex][i].confirmed){
+			toPrint += to_string(read_group[seqIndex][i].index) + " ";
+		    //~ }
 		}
 		if (read_id_printed){
 		    synchro->lock();
@@ -211,38 +222,9 @@ public:
 
 
 
+
+
 void SRC_linker_rna::parse_query_sequences(int threshold, uint size_window, const int nbCores, const string& bankName){
-    //~ cout << bankName << endl;
-    //~ BankAlbum banks (bankName);
-    //~ cout << "nn" << endl;
-    //~ const std::vector<IBank*>& banks_of_queries = banks.getBanks();
-    //~ const int number_of_read_sets = banks_of_queries.size();
-    //~ IBank* bank = Bank::open (bankName);
-	//~ FILE * outFile;
-	//~ outFile = fopen (getInput()->getStr(STR_OUT_FILE).c_str(), "wb");
-    //~ string message("#query_read_id [target_read_id-kmer_span (k="+to_string(kmer_size)+")-kmer_span query percentage]* or U (unvalid read, containing not only ACGT characters or low complexity read)\n"+"#Target read set: "+getInput()->getStr(STR_URI_BANK_INPUT)+"\n");
-    //~ fwrite((message).c_str(), sizeof(char), message.size(), outFile);
-    
-    
-    //~ for( int bank_id=0;bank_id<number_of_read_sets;bank_id++){ // iterate each bank
-        
-        
-        //~ IBank* bank=banks_of_queries[bank_id];
-        //~ LOCAL (bank);
-        //~ string message("#Query read set number "+bank->getId()+"\n");
-        //~ fwrite((message).c_str(), sizeof(char), message.size(), outFile);
-        //~ string progressMessage("Querying read set "+bank->getId());
-        //~ ProgressIterator<Sequence> itSeq (*bank, progressMessage.c_str());
-        //~ ISynchronizer* synchro = System::thread().newSynchronizer();
-        //~ Dispatcher dispatcher (nbCores, 1000);
-	//~ std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;
-	//~ std::unordered_map<uint64_t, vector<uint>> read_group;
-        //~ dispatcher.iterate (itSeq, FunctorQuerySpanKmers(synchro, outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
-        //~ delete synchro;
-    //~ }
-    //~ fclose (outFile);
-    
-    
     IBank* bank = Bank::open(bankName);
     cout<<"Query "<<kmer_size<<"-mers from bank "<< bankName <<endl;
     FILE * outFile;
@@ -255,8 +237,7 @@ void SRC_linker_rna::parse_query_sequences(int threshold, uint size_window, cons
     Dispatcher dispatcher (1, 10000);
     //~ Dispatcher dispatcher (nbCores, 10000);
     std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;
-    std::unordered_map<uint64_t, vector<uint>> read_group;
-    //~ dispatcher.iterate (itSeq, FunctorQuerySpanKmers(synchro,pFile, kmer_size,&quasiDico, threshold));
+    std::unordered_map<uint64_t, vector<readGrouped>> read_group;
     dispatcher.iterate(itSeq, FunctorQuerySpanKmers(synchro, outFile, kmer_size, &quasiDico, threshold, size_window, reads_sharing_kmer_2_positions, read_group));
     fclose (outFile);
     delete synchro;
@@ -287,9 +268,9 @@ void SRC_linker_rna::execute (){
 	getInfo()->add (1, "input");
 	getInfo()->add (2, "Sequences bank",  "%s",  getInput()->getStr(STR_URI_BANK_INPUT).c_str());
 	//~ getInfo()->add (2, "Query bank",  "%s",  getInput()->getStr(STR_URI_BANK_INPUT).c_str());
-    getInfo()->add (2, "Kmer size",  "%d",  kmer_size);
+	getInfo()->add (2, "Kmer size",  "%d",  kmer_size);
 	getInfo()->add (2, "Fingerprint size",  "%d",  fingerprint_size);
-    getInfo()->add (2, "gamma",  "%d",  gamma_value);
+	getInfo()->add (2, "gamma",  "%d",  gamma_value);
 	getInfo()->add (2, "Minimal kmer span percentage",  "%d",  threshold);
 	getInfo()->add (1, "output");
 	getInfo()->add (2, "Results written in",  "%s",  getInput()->getStr(STR_OUT_FILE).c_str());
