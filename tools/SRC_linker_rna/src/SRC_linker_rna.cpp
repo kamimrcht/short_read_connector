@@ -94,8 +94,8 @@ public:
 	FILE* outFile;
 	int kmer_size;
 	quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t>* quasiDico;
-	std::unordered_map<uint, vector<uint>> reads_sharing_kmer_2_positions;  // store the position where a k-mer is seen in a read that can be potentially recruited
-	std::unordered_map<uint, vector<uint>> read_group;  // for a read, get all reads sharing at least a window
+	std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;  // store the position where a k-mer is seen in a read that can be potentially recruited
+	std::unordered_map<uint64_t, vector<uint>> read_group;  // for a read, get all reads sharing at least a window
 	uint threshold;
 	uint size_window;
 	vector<u_int32_t> associated_read_ids;
@@ -135,7 +135,7 @@ public:
 		//~ read_group = {};
 		itKmer->setData (seq.getData());
 		uint i(0); // position on the read
-		uint seqIndex(seq.getIndex() + 1);
+		uint64_t seqIndex(seq.getIndex() + 1);
 		for (itKmer->first(); !itKmer->isDone(); itKmer->next()){
 		    quasiDico->get_value((*itKmer)->value().getVal(), exists, associated_read_ids);
 		    if(!exists) {++i; continue;}
@@ -165,7 +165,7 @@ public:
 				++count;
 			    }
 			} else {
-			    uint start(uint(w/size_window) * size_window - w + 1);
+			    uint start(w - size_window + 1);
 			    if (presence[start - 1] == 1){
 				--count;
 			    }
