@@ -67,7 +67,7 @@ public:
 
     void create_quasi_dictionary(int fingerprint_size, int nbCores);
 
-    void fill_quasi_dictionary(const int nbCores, const string& bankName, vector <string>* v);
+    void fill_quasi_dictionary(const int nbCores, const string& bankName, vector <string>& v);
 
     void parse_query_sequences(int threshold, uint size_window, const int nbCores, const string& bankName);
     
