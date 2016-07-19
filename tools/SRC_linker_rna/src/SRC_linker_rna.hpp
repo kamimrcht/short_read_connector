@@ -20,6 +20,7 @@
 #define _TOOL_SRC_linker_rna_HPP_
 
 /********************************************************************************/
+
 #include <gatb/gatb_core.hpp>
 #include "../../../thirdparty/IteratorKmerH5/IteratorKmerH5.hpp"
 #include "../../../thirdparty/quasi_dictionary/src/quasidictionary.h"
@@ -51,10 +52,12 @@ private:
 	int gamma_value;
 	int kmer_size;
 	static const size_t span = KMER_SPAN(1);
+	//~ vector <Data> readsVector;
+	//~ atomic uint nbRead;
 
 
 public:
-
+	
     // Constructor
 	SRC_linker_rna ();
 
@@ -64,7 +67,7 @@ public:
 
     void create_quasi_dictionary(int fingerprint_size, int nbCores);
 
-    void fill_quasi_dictionary(const int nbCores, const string& bankName);
+    void fill_quasi_dictionary(const int nbCores, const string& bankName, vector <string>* v);
 
     void parse_query_sequences(int threshold, uint size_window, const int nbCores, const string& bankName);
     

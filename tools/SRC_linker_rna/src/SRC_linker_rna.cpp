@@ -18,7 +18,7 @@ static const char* STR_OUT_FILE = "-out";
 static const char* STR_CORE = "-core";
 
 
-SRC_linker_rna::SRC_linker_rna ()  : Tool ("SRC_linker_rna"){
+SRC_linker_rna::SRC_linker_rna()  : Tool ("SRC_linker_rna"){
 	// We add some custom arguments for command line interface
 	getParser()->push_back (new OptionOneParam (STR_URI_GRAPH, "graph input",   true));
 	getParser()->push_back (new OptionOneParam (STR_URI_BANK_INPUT, "bank input",    true));
@@ -29,10 +29,11 @@ SRC_linker_rna::SRC_linker_rna ()  : Tool ("SRC_linker_rna"){
 	getParser()->push_back (new OptionOneParam (STR_GAMMA, "gamma value",    false, "2"));
 	getParser()->push_back (new OptionOneParam (STR_FINGERPRINT, "fingerprint size",    false, "8"));
 	getParser()->push_back (new OptionOneParam (STR_CORE, "Number of thread",    false, "1"));
+	//~ nbRead=0;
 }
 
 
-void SRC_linker_rna::create_quasi_dictionary (int fingerprint_size, int nbCores){
+void SRC_linker_rna::create_quasi_dictionary(int fingerprint_size, int nbCores){
 	const int display = getInput()->getInt (STR_VERBOSE);
 	// We get a handle on the HDF5 storage object.
 	// Note that we use an auto pointer since the StorageFactory dynamically allocates an instance
@@ -55,12 +56,15 @@ void SRC_linker_rna::create_quasi_dictionary (int fingerprint_size, int nbCores)
 struct FunctorIndexer{
 	quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t > &quasiDico;
 	int kmer_size;
-
-	FunctorIndexer(quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >& quasiDico, int kmer_size)  :  quasiDico(quasiDico), kmer_size(kmer_size) {
+	ISynchronizer* synchro;
+	vector<string>* vec;
+	
+	FunctorIndexer(quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >& quasiDico, int kmer_size, vector<string>* vec, ISynchronizer* synchro)  :  quasiDico(quasiDico), kmer_size(kmer_size), synchro(synchro), vec(vec) {
 	}
 
 	void operator() (Sequence& seq){
 		if(not valid_sequence(seq,kmer_size)){return;}
+		//~ nbRead++;
 		Kmer<KMER_SPAN(1)>::ModelCanonical model (kmer_size);
 		Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator itKmer (model);
 		itKmer.setData (seq.getData());
@@ -69,19 +73,32 @@ struct FunctorIndexer{
 			// Adding the read id to the list of ids associated to this kmer.note that the kmer may not exist in the dictionary if it was under the solidity threshold.in this case, nothing is done
 			quasiDico.set_value((itKmer)->value().getVal(), read_id);
 		}
+		synchro->lock();
+		uint indexWanted(seq.getIndex() + 1 );
+		if (indexWanted>= vec->size()){
+		    vec->resize(indexWanted + 2);
+		    (*vec)[indexWanted] = seq.toString();
+		} else {
+		    (*vec)[indexWanted] = seq.toString();
+		}
+		synchro->unlock();
 	}
 };
 
 
 
-void SRC_linker_rna::fill_quasi_dictionary (const int nbCores, const string& bankName){
+
+
+
+void SRC_linker_rna::fill_quasi_dictionary(const int nbCores, const string& bankName, vector <string>* v){
 	bool exists;
 	IBank* bank = Bank::open (bankName);
 	cout<<"Index "<<kmer_size<<"-mers from bank "<<getInput()->getStr(STR_URI_BANK_INPUT)<<endl;
 	LOCAL (bank);
 	ProgressIterator<Sequence> itSeq (*bank);
 	Dispatcher dispatcher (nbCores, 10000);
-	dispatcher.iterate (itSeq, FunctorIndexer(quasiDico, kmer_size));
+	ISynchronizer* synchro = System::thread().newSynchronizer();
+	dispatcher.iterate (itSeq, FunctorIndexer(quasiDico, kmer_size, v, synchro));
 }
 
 
@@ -116,12 +133,12 @@ public:
 		itKmer = new Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator (model);
 	}
     
-	FunctorQueryMatchingRegions (ISynchronizer* synchro, FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold, const uint size_window, std::unordered_map<uint64_t, vector<uint>>& reads_sharing_kmer_2_positions, std::unordered_map<uint64_t, vector<readGrouped>> read_group)
+	FunctorQueryMatchingRegions(ISynchronizer* synchro, FILE* outFile,  const int kmer_size,  quasidictionaryVectorKeyGeneric <IteratorKmerH5Wrapper, u_int32_t >* quasiDico, const int threshold, const uint size_window, std::unordered_map<uint64_t, vector<uint>>& reads_sharing_kmer_2_positions, std::unordered_map<uint64_t, vector<readGrouped>> read_group)
 	: synchro(synchro), outFile(outFile), kmer_size(kmer_size), quasiDico(quasiDico), threshold(threshold),  size_window(size_window), reads_sharing_kmer_2_positions(reads_sharing_kmer_2_positions), read_group(read_group){
 		model=Kmer<KMER_SPAN(1)>::ModelCanonical (kmer_size);
 	}
     
-	FunctorQueryMatchingRegions (){
+	FunctorQueryMatchingRegions(){
 	}
     
 	void operator() (Sequence& seq){
@@ -187,7 +204,6 @@ public:
 				}
 			    }
 			}
-			cout << confirm << endl;
 			if (read_group.count(seqIndex)){
 			    read_group[seqIndex].push_back({r->first, confirm});
 			} else {
@@ -245,10 +261,11 @@ void SRC_linker_rna::parse_query_sequences(int threshold, uint size_window, cons
 
 
 
-void SRC_linker_rna::execute (){
+void SRC_linker_rna::execute(){
 	int nbCores = getInput()->getInt(STR_CORE);
 	int fingerprint_size = getInput()->getInt(STR_FINGERPRINT);
 	gamma_value = getInput()->getInt(STR_GAMMA);
+	
 	// IMPORTANT NOTE:
 	// Actually, during the filling of the dictionary values, one may fall on non solid non indexed kmers
 	// that are quasi dictionary false positives (ven with a non null fingerprint. This means that one nevers knows in advance how much
@@ -257,10 +274,22 @@ void SRC_linker_rna::execute (){
 	// We need a non null finger print because of non solid non indexed kmers
 	//	if (getInput()->getStr(STR_URI_BANK_INPUT).compare(getInput()->getStr(STR_URI_QUERY_INPUT))==0)
 	//		fingerprint_size=0;
+	vector <string> readsVector;
 	cout<<"fingerprint = "<<fingerprint_size<<endl;
 	create_quasi_dictionary(fingerprint_size, nbCores);
 	string bankName(getInput()->getStr(STR_URI_BANK_INPUT));
-	fill_quasi_dictionary(nbCores, bankName);
+	fill_quasi_dictionary(nbCores, bankName, &readsVector);
+
+	/* debug */
+	cout << "SIZE" <<readsVector.size() << endl;
+	//~ for (uint i(0); i < readsVector.size(); ++i){
+	    //~ cout << i << endl;
+	    //~ for (uint j(0); j < readsVector[i].size(); ++j){
+		
+	    //~ }
+	//~ }
+
+	
 	int threshold = getInput()->getInt(STR_THRESHOLD);
 	uint size_window =  getInput()->getInt(STR_WINDOW);
 	parse_query_sequences(threshold, size_window, nbCores, bankName);
