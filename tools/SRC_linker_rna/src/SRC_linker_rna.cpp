@@ -153,15 +153,15 @@ public:
 		uint64_t seqIndex(seq.getIndex() + 1);
 		for (itKmer->first(); !itKmer->isDone(); itKmer->next()){
 		    quasiDico->get_value((*itKmer)->value().getVal(), exists, associated_read_ids);
-		    cout<<"go"<<endl;
+		    //~ cout<<"go"<<endl;
 		    if(!exists) {++i; continue;}
 		    cout<<"kmer found " << associated_read_ids.size() <<endl; // warning: a same read id can be stored several times
 		    for (uint r(0); r < associated_read_ids.size(); ++r){
-			cout << "id" << associated_read_ids[r] << endl;
+			//~ cout << "id" << associated_read_ids[r] << endl;
 			if (reads_sharing_kmer_2_positions.count(associated_read_ids[r])){
 			    if (i > reads_sharing_kmer_2_positions[associated_read_ids[r]][reads_sharing_kmer_2_positions[associated_read_ids[r]].size() - 1]) { /*because of the warning above */
 				reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
-				cout<<"added "<< i << endl;
+				//~ cout<<"added "<< i << endl;
 			    }
 			} else {
 			    if (associated_read_ids[r] != seq.getIndex() + 1){  // we dont want to store the info about a read similar to itself
@@ -191,7 +191,7 @@ public:
 			if (w < size_window){
 			    if (presence[w] == 1){
 				endKmerPosi = w;
-				//~ cout << "true 0 " << count << endl;
+				cout << "true 0 " << count << endl;
 				++count;
 			    }
 			} else {
