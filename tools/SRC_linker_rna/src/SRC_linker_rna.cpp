@@ -99,11 +99,12 @@ void SRC_linker_rna::fill_quasi_dictionary(const int nbCores, const string& bank
 	Dispatcher dispatcher (nbCores, 10000);
 	ISynchronizer* synchro = System::thread().newSynchronizer();
 	dispatcher.iterate (itSeq, FunctorIndexer(quasiDico, kmer_size, v, synchro));
+	//~ cout << "SIZE" <<v.size() << endl;
 }
 
 
 
-class FunctorQueryMatchingRegions // FunctorQuery used after claires discussion: number of positions covered by a shared kmer.
+class FunctorQueryMatchingRegions
 {
 public:
 	ISynchronizer* synchro;
@@ -152,10 +153,16 @@ public:
 		uint64_t seqIndex(seq.getIndex() + 1);
 		for (itKmer->first(); !itKmer->isDone(); itKmer->next()){
 		    quasiDico->get_value((*itKmer)->value().getVal(), exists, associated_read_ids);
+		    cout<<"go"<<endl;
 		    if(!exists) {++i; continue;}
+		    cout<<"kmer found " << associated_read_ids.size() <<endl; // warning: a same read id can be stored several times
 		    for (uint r(0); r < associated_read_ids.size(); ++r){
+			cout << "id" << associated_read_ids[r] << endl;
 			if (reads_sharing_kmer_2_positions.count(associated_read_ids[r])){
-			    reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
+			    if (i > reads_sharing_kmer_2_positions[associated_read_ids[r]][reads_sharing_kmer_2_positions[associated_read_ids[r]].size() - 1]) { /*because of the warning above */
+				reads_sharing_kmer_2_positions[associated_read_ids[r]].push_back(i);
+				cout<<"added "<< i << endl;
+			    }
 			} else {
 			    if (associated_read_ids[r] != seq.getIndex() + 1){  // we dont want to store the info about a read similar to itself
 				//~ cout << associated_read_ids[r] << endl;
@@ -165,6 +172,7 @@ public:
 		    }
 		    ++i;
 		}
+		//~ cout << seq.getIndex() << endl;
 		for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
 		    size_t lenseq = seq.getDataSize();
 		    vector<uint> presence(uint(lenseq) - kmer_size + 1, 0);
@@ -174,30 +182,43 @@ public:
 		    uint endKmerPosi(0);
 		    for (uint j(0); j < r->second.size(); ++j){
 			presence[r->second[j]] = 1;
+			cout<<r->second[j]<<endl;
+			cin.get();
 		    }
 		    pair <string, string> matchingRegion;
+		    uint start(0);
 		    for (uint w(0); w < presence.size(); ++w){
 			if (w < size_window){
 			    if (presence[w] == 1){
 				endKmerPosi = w;
+				//~ cout << "true 0 " << count << endl;
 				++count;
 			    }
 			} else {
-			    uint start(w - size_window + 1);
+			    start = w - size_window + 1;
+			    //~ cout << "start " << start << endl;
+			    //~ cout << "w" << w << endl;
+			    //~ cout << "sizew" << size_window << endl;
 			    endKmerPosi = w;
 			    startKmerPosi = start;
-			    if (presence[start - 1] == 1){
+			    if (presence[start - 1] == 1 and count > 0){
+				//~ cout << "true 1 " << count << "start -1 " << start - 1 << endl;
 				--count;
 			    }
 			    if (presence[w] == 1){
+				//~ cout << "true 2 " << count << "w " << w << endl;
 				++count;
 			    }
 			}
+			
 			if (count / (size_window - kmer_size + 1) * 100 >= threshold){
+			    //~ cout << "count " << count << endl;
+			    //~ cout << "size_window - kmer_size + 1" << size_window - kmer_size + 1 << endl;
+			    //~ cout << "count / (size_window - kmer_size + 1) *100 " << count / (size_window - kmer_size + 1) *100<< endl;
+			    //~ cout <<" t " << threshold << endl;
 			    found = true;
 			    break;
-			}
-			
+			} 
 		    }
 		    if (found){
 			string seqString(seq.toString());
@@ -295,17 +316,6 @@ void SRC_linker_rna::execute(){
 	create_quasi_dictionary(fingerprint_size, nbCores);
 	string bankName(getInput()->getStr(STR_URI_BANK_INPUT));
 	fill_quasi_dictionary(nbCores, bankName, readsVector);
-
-	/* debug */
-	cout << "SIZE" <<readsVector.size() << endl;
-	//~ for (uint i(0); i < readsVector.size(); ++i){
-	    //~ cout << i << endl;
-	    //~ for (uint j(0); j < readsVector[i].size(); ++j){
-		
-	    //~ }
-	//~ }
-
-	
 	int threshold = getInput()->getInt(STR_THRESHOLD);
 	uint size_window =  getInput()->getInt(STR_WINDOW);
 	parse_query_sequences(threshold, size_window, nbCores, bankName);
