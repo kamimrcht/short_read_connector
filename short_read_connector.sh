@@ -235,7 +235,7 @@ fi
 
 
 #rm -f ${unsorted_result_file}
-
+./scripts/SRC_linker2reads.py ${bank_set} ${result_file}
 
 echo "***********************************"
 echo "Short read connector finished"

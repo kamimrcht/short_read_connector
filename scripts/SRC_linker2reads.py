@@ -1,21 +1,26 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import sys
 import gzip
 
-def get_read(sequencefile,offset):
+def get_read(sequencefile,offset, toPrint):
     sequencefile.seek(offset)
     read=""
+    #~ line=sequencefile.readline()
     line=sequencefile.readline()
     if not line: 
-        print "cannot read read at offset", offset
+        print("cannot read read at offset", offset)
+        #~ print "cannot read read at offset", offset
         exit(1)
-    read+=line#include header
+    #~ print line[:-1] + toPrint#include header
+    read+=line[:-1] + toPrint#include header
     read+=sequencefile.readline()#include sequence
     if read[0]=='>': return read
     if read[0]!='@': 
-        print "read offset", offset, "does not start with @ or >"
+        #~ print "read offset", offset, "does not start with @ or >"
+        print("read offset", offset, "does not start with @ or >")
         exit(1)
-    read+=sequencefile.readline()#include header2
+    read+=sequencefile.readline()[:-1]+toPrint#include header2
     read+=sequencefile.readline()#include quality
 
 def index_bank_offsets(bank_file_name):
@@ -29,10 +34,12 @@ def index_bank_offsets(bank_file_name):
     # i=1
     line=sequencefile.readline()
     if not line: 
-        print "Can't open file", bank_file_name
+        print("Can't open file", bank_file_name)
+        #~ print "Can't open file", bank_file_name
         exit(1)
     if line[0]!='@' and line[0]!='>': 
-        print "File", bank_file_name, "not correctly formatted"
+        print("File", bank_file_name, "not correctly formatted")
+        #~ print "File", bank_file_name, "not correctly formatted"
         exit(1)
 
     linesperread=2 #fasta by default
@@ -54,6 +61,7 @@ def index_bank_offsets(bank_file_name):
 
 def convert_SRC_linker_output(read_offsets, remove_similar_reads, SRC_linker_output_file_name, bank_file_name):
     #OPEN SRC OUTPUT
+    
     if "gz" in SRC_linker_output_file_name:
         srcfile=gzip.open(SRC_linker_output_file_name,"r")
     else: 
@@ -77,29 +85,45 @@ def convert_SRC_linker_output(read_offsets, remove_similar_reads, SRC_linker_out
             continue
         line=line.rstrip()
         query_read_id=int(line.split(':')[0])-1 # -1 as the read ids are 1 based in SRC
+        nameOut = "reads_groups_" + str(query_read_id) + ".fasta"
+        outputFile = open(nameOut, "w")
         targets=line.split(':')[1].split(' ')
+        toPrint = "_group_" + str(query_read_id) + "\n"
+        outputFile.write(get_read(bankfile,read_offsets[query_read_id], toPrint))
         for target in targets:
             target_read_id=int(target.split('-')[0])-1 # -1 as the read ids are 1 based in SRC
             #target_read_similarity=int(target.split('-')[1])
             if remove_similar_reads and target_read_id == query_read_id: continue
             #print line
-            print "################################ NEW COUPLE  (" + str(query_read_id) + "/" + str(target_read_id) +") ##############################"
+            #~ print "################################ NEW COUPLE  (" + str(query_read_id) + "/" + str(target_read_id) +") ##############################"
+            toPrint = "(" + str(query_read_id) + "/" + str(target_read_id) +")\n"
             #~ print "################################ NEW COUPLE ("+str(query_read_id)+"/"+str(target_read_id)+":"+str(target_read_similarity)+" percent similarity)+##############################"
-            print get_read(bankfile,read_offsets[query_read_id]),
-            print get_read(bankfile2,read_offsets[target_read_id]),
+            #~ print get_read(bankfile,read_offsets[query_read_id], toPrint),
+            #~ print get_read(bankfile2,read_offsets[target_read_id], toPrint)
+            
+            #~ print(get_read(bankfile,read_offsets[query_read_id], toPrint), end="")
+            #~ print(get_read(bankfile2,read_offsets[target_read_id], toPrint), end="")
+            outputFile.write(get_read(bankfile,read_offsets[target_read_id], toPrint))
     srcfile.close()
     bankfile.close()
     bankfile2.close()
     
     
 if len(sys.argv)<3 or len(sys.argv)>4:
-     print "USAGE"
-     print " Used to transform the SRC_linker output into a format that retrieves the similar reads (instead of only read ids) "
-     print " Each couple of similar reads are written (starting with an horrible \"###############################\" line"
-     print " This tool must not be used when SRC_linker was used to compare two distinct read sets but only when SRC_linker was used to compare a read set against itself"
-     print " For other needs, contact pierre.peterlongo@inria.fr"
-     print "COMMAND"
-     print  sys.argv[0],"<banq file (fasta format, each sequence on ONE line, gzipped or not)> <SRC_linker output file> <optional 'R': if present similarity between read and itself are removed>"
+     #~ print "USAGE"
+     #~ print " Used to transform the SRC_linker output into a format that retrieves the similar reads (instead of only read ids) "
+     #~ print " Each couple of similar reads are written (starting with an horrible \"###############################\" line"
+     #~ print " This tool must not be used when SRC_linker was used to compare two distinct read sets but only when SRC_linker was used to compare a read set against itself"
+     #~ print " For other needs, contact pierre.peterlongo@inria.fr"
+     #~ print "COMMAND"
+     #~ print  sys.argv[0],"<banq file (fasta format, each sequence on ONE line, gzipped or not)> <SRC_linker output file> <optional 'R': if present similarity between read and itself are removed>"
+     print("USAGE")
+     print( " Used to transform the SRC_linker output into a format that retrieves the similar reads (instead of only read ids) ")
+     print(" Each couple of similar reads are written (starting with an horrible \"###############################\" line")
+     print(" This tool must not be used when SRC_linker was used to compare two distinct read sets but only when SRC_linker was used to compare a read set against itself")
+     print(" For other needs, contact pierre.peterlongo@inria.fr")
+     print( "COMMAND")
+     print(sys.argv[0],"<banq file (fasta format, each sequence on ONE line, gzipped or not)> <SRC_linker output file> <optional 'R': if present similarity between read and itself are removed>")
      sys.exit(1)
 
 
