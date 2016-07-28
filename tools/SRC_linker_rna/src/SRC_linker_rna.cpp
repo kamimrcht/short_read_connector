@@ -144,6 +144,7 @@ public:
     
 	void operator() (Sequence& seq){
 	    if (not valid_sequence(seq, kmer_size)){return;}
+		//~ cout << "go" << endl;
 		bool exists;
 		associated_read_ids = {}; // list of the ids of reads from the bank where a kmer occurs
 		reads_sharing_kmer_2_positions = {};  // store the position where a k-mer is seen in a read that can be potentially recruited
@@ -168,68 +169,72 @@ public:
 		    ++i;
 		}
 		for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
-		    size_t lenseq = seq.getDataSize();
-		    vector<uint> presence(uint(lenseq) - kmer_size + 1, 0);
-		    uint count(0);
-		    bool found(false);
-		    uint startKmerPosi(0);
-		    uint endKmerPosi(0);
-		    for (uint j(0); j < r->second.size(); ++j){
-			presence[r->second[j]] = 1;
-		    }
-		    pair <string, string> matchingRegion;
-		    uint start(0);
-		    for (uint w(0); w < presence.size(); ++w){
-			if (w < size_window){
-			    if (presence[w] == 1){
+		    if (r->second.size() >= theshold){
+			size_t lenseq = seq.getDataSize();
+			vector<uint> presence(uint(lenseq) - kmer_size + 1, 0);
+			uint count(0);
+			bool found(false);
+			uint startKmerPosi(0);
+			uint endKmerPosi(0);
+			for (uint j(0); j < r->second.size(); ++j){
+			    presence[r->second[j]] = 1;
+			}
+			pair <string, string> matchingRegion;
+			uint start(0);
+			for (uint w(0); w < presence.size(); ++w){
+			    if (w < size_window){
+				if (presence[w] == 1){
+				    endKmerPosi = w;
+				    ++count;
+				}
+			    
+			    } else {
+				start = w - size_window + 1;
 				endKmerPosi = w;
-				++count;
+				startKmerPosi = start;
+				if (presence[start - 1] == 1 and count > 0){
+				    --count;
+				}
+				if (presence[w] == 1){
+				    ++count;
+				}
 			    }
-			
-			} else {
-			    start = w - size_window + 1;
-			    endKmerPosi = w;
-			    startKmerPosi = start;
-			    if (presence[start - 1] == 1 and count > 0){
-				--count;
-			    }
-			    if (presence[w] == 1){
-				++count;
-			    }
+			    if (uint(double(count) / (size_window - kmer_size + 1) * 100) >= threshold){
+				found = true;
+				break;
+			    } 
 			}
-			if (uint(double(count) / (size_window - kmer_size + 1) * 100) >= threshold){
-			    found = true;
-			    break;
-			} 
-		    }
-		    if (found){
-			string seqString(seq.toString());
-			//~ string startKmer(seqString.substr(startKmerPosi, kmer_size));
-			//~ string endKmer(seqString.substr(endKmerPosi, kmer_size));
-			//~ matchingRegion = {startKmer, endKmer};
-			bool confirm(false);
-			// for the two reads to match, we want to find a window also in the recruited read
-			for (uint posi(startKmerPosi); posi < endKmerPosi + 1; ++posi){
-			    // regarder les 1 du vecteur presence <- recup le kmer puis voir sa position dans l'autre read
-			    // regarder le 1er et le dernier 1 du vecteur présence ?
-			}
-			// previous condition to be matching
-			//~ if (read_group.count(r->first)){
-			    //~ for (uint rr(0); rr < read_group[r->first].size(); ++rr){
-				//~ if (read_group[r->first][rr].index == seqIndex){ // the two reads have been found matching
-				    //~ read_group[r->first][rr].confirmed = true;
-				    //~ confirm = true;
-				    //~ break;
+			if (found){
+			    string seqString(seq.toString());
+			    //~ string startKmer(seqString.substr(startKmerPosi, kmer_size));
+			    //~ string endKmer(seqString.substr(endKmerPosi, kmer_size));
+			    //~ matchingRegion = {startKmer, endKmer};
+			    bool confirm(false);
+			    // for the two reads to match, we want to find a window also in the recruited read
+			    for (uint posi(startKmerPosi); posi < endKmerPosi + 1; ++posi){
+				// regarder les 1 du vecteur presence <- recup le kmer puis voir sa position dans l'autre read
+				// regarder le 1er et le dernier 1 du vecteur présence ?
+			    }
+			    // previous condition to be matching
+			    //~ if (read_group.count(r->first)){
+				//~ for (uint rr(0); rr < read_group[r->first].size(); ++rr){
+				    //~ if (read_group[r->first][rr].index == seqIndex){ // the two reads have been found matching
+					//~ read_group[r->first][rr].confirmed = true;
+					//~ confirm = true;
+					//~ break;
+				    //~ }
 				//~ }
 			    //~ }
-			//~ }
-			if (read_group.count(seqIndex)){
-			    read_group[seqIndex].push_back({r->first, confirm});
-			} else {
-			    readGrouped rg({r->first, confirm});
-			    vector <readGrouped> v({rg});
-			    read_group[seqIndex] = {v};
+			    if (read_group.count(seqIndex)){
+				read_group[seqIndex].push_back({r->first, confirm});
+			    } else {
+				readGrouped rg({r->first, confirm});
+				vector <readGrouped> v({rg});
+				read_group[seqIndex] = {v};
+			    }
 			}
+		    } else {
+			reads_sharing_kmer_2_positions.erase(r->first);  // not enough k-mers shared
 		    }
 		}
 	    string toPrint;
@@ -269,7 +274,7 @@ void SRC_linker_rna::parse_query_sequences(int threshold, uint size_window, cons
     LOCAL (bank);
     ProgressIterator<Sequence> itSeq (*bank);
     ISynchronizer* synchro = System::thread().newSynchronizer();
-    Dispatcher dispatcher (1, 10000);
+    Dispatcher dispatcher (nbCores, 10000);
     //~ Dispatcher dispatcher (nbCores, 10000);
     std::unordered_map<uint64_t, vector<uint>> reads_sharing_kmer_2_positions;
     std::unordered_map<uint64_t, vector<readGrouped>> read_group;

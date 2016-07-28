@@ -42,10 +42,7 @@ echo  "	-f value. Fingerprint size. Size of the key associated to each indexed v
 echo  "	-G value. gamma value. MPHF expert users parameter - Default=2"
 echo  "	-a: kmer abundance min (kmer from bank seen less than this value are not indexed). Default=2"
 echo  "	-s: Minimal percentage of shared kmer in a region for considering 2 reads in a same group. Default=75"
-
 echo  " -w: Region (putative exon) size. Default=80"
-
-
 echo  "	-t: number of thread used. Default=0"
 echo  "	-d:  use disk over RAM (slower and no impact with -c option)"
 echo  "	-c: use short_read_connector_counter (SRC_counter)"
