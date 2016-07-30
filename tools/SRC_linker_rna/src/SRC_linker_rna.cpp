@@ -166,7 +166,7 @@ public:
 		    }
 		    ++i;
 		}
-		//~ for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
+		for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
 		    //~ size_t lenseq = seq.getDataSize();
 		    //~ uint bound(double((uint(lenseq) - kmer_size + 1) * threshold)/(kmer_size * 100));
 		    //~ if (r->second.size() >= bound){
@@ -217,7 +217,7 @@ public:
 		    //~ } else {
 			//~ reads_sharing_kmer_2_positions.erase(r->first);  // not enough k-mers shared
 		    //~ }
-		//~ }
+		}
 	    //~ string toPrint;
 	    //~ bool read_id_printed = false; // Print (and sync file) only if the read is similar to something.
 	    //~ if (not read_group[seqIndex].empty()){
