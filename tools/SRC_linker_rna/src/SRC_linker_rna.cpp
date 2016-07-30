@@ -167,73 +167,74 @@ public:
 		    ++i;
 		}
 		for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
-		    //~ size_t lenseq = seq.getDataSize();
-		    //~ uint bound(double((uint(lenseq) - kmer_size + 1) * threshold)/(kmer_size * 100));
-		    //~ if (r->second.size() >= bound){
-			//~ vector<uint> presence(uint(lenseq) - kmer_size + 1, 0);
-			//~ uint count(0);
-			//~ bool found(false);
-			//~ uint startKmerPosi(0);
-			//~ uint endKmerPosi(0);
-			//~ for (uint j(0); j < r->second.size(); ++j){
-			    //~ presence[r->second[j]] = 1;
-			//~ }
-			//~ pair <string, string> matchingRegion;
-			//~ uint start(0);
-			//~ for (uint w(0); w < presence.size(); ++w){
-			    //~ if (w < size_window){
-				//~ if (presence[w] == 1){
-				    //~ endKmerPosi = w;
-				    //~ ++count;
-				//~ }
+		    size_t lenseq = seq.getDataSize();
+		    uint bound(double((uint(lenseq) - kmer_size + 1) * threshold)/(kmer_size * 100));
+		    if (r->second.size() >= bound){
+			vector<uint> presence(uint(lenseq) - kmer_size + 1, 0);
+			uint count(0);
+			bool found(false);
+			uint startKmerPosi(0);
+			uint endKmerPosi(0);
+			for (uint j(0); j < r->second.size(); ++j){
+			    presence[r->second[j]] = 1;
+			}
+			pair <string, string> matchingRegion;
+			uint start(0);
+			for (uint w(0); w < presence.size(); ++w){
+			    if (w < size_window){
+				if (presence[w] == 1){
+				    endKmerPosi = w;
+				    ++count;
+				}
 			    
-			    //~ } else {
-				//~ start = w - size_window + 1;
-				//~ endKmerPosi = w;
-				//~ startKmerPosi = start;
-				//~ if (presence[start - 1] == 1 and count > 0){
-				    //~ --count;
-				//~ }
-				//~ if (presence[w] == 1){
-				    //~ ++count;
-				//~ }
-			    //~ }
-			    //~ if (uint(double(count) * kmer_size / (size_window - kmer_size + 1) * 100) >= threshold){
-				//~ found = true;
-				//~ break;
-			    //~ } 
-			//~ }
-			//~ if (found){
-			    //~ string seqString(seq.toString());
-			    //~ bool confirm(false);
-			    //~ if (read_group.count(seqIndex)){
-				//~ read_group[seqIndex].push_back({r->first, confirm});
-			    //~ } else {
-				//~ readGrouped rg({r->first, confirm});
-				//~ vector <readGrouped> v({rg});
-				//~ read_group[seqIndex] = {v};
-			    //~ }
-			//~ }
-		    //~ } else {
+			    } else {
+				start = w - size_window + 1;
+				endKmerPosi = w;
+				startKmerPosi = start;
+				if (presence[start - 1] == 1 and count > 0){
+				    --count;
+				}
+				if (presence[w] == 1){
+				    ++count;
+				}
+			    }
+			    if (uint(double(count) * kmer_size / (size_window - kmer_size + 1) * 100) >= threshold){
+				found = true;
+				break;
+			    } 
+			}
+			if (found){
+			    string seqString(seq.toString());
+			    bool confirm(false);
+			    if (read_group.count(seqIndex)){
+				read_group[seqIndex].push_back({r->first, confirm});
+			    } else {
+				readGrouped rg({r->first, confirm});
+				vector <readGrouped> v({rg});
+				read_group[seqIndex] = {v};
+			    }
+			}
+		    }
+		     //~ else { // segfault
 			//~ reads_sharing_kmer_2_positions.erase(r->first);  // not enough k-mers shared
 		    //~ }
 		}
-	    //~ string toPrint;
-	    //~ bool read_id_printed = false; // Print (and sync file) only if the read is similar to something.
-	    //~ if (not read_group[seqIndex].empty()){
-		//~ if (not read_id_printed){
-		    //~ read_id_printed = true;
-		    //~ toPrint = to_string(seqIndex) + ":";
-		//~ }
-		//~ for (uint i(0); i < read_group[seqIndex].size(); ++i){
-			//~ toPrint += to_string(read_group[seqIndex][i].index) + " ";
-		//~ }
-		//~ if (read_id_printed){
-		    //~ synchro->lock();
-		    //~ toPrint += "\n";
-		    //~ fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
-		    //~ synchro->unlock();
-		//~ }
+	    string toPrint;
+	    bool read_id_printed = false; // Print (and sync file) only if the read is similar to something.
+	    if (not read_group[seqIndex].empty()){
+		if (not read_id_printed){
+		    read_id_printed = true;
+		    toPrint = to_string(seqIndex) + ":";
+		}
+		for (uint i(0); i < read_group[seqIndex].size(); ++i){
+			toPrint += to_string(read_group[seqIndex][i].index) + " ";
+		}
+		if (read_id_printed){
+		    synchro->lock();
+		    toPrint += "\n";
+		    fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
+		    synchro->unlock();
+		}
 	    }
 	}
 };
