@@ -144,11 +144,9 @@ public:
     
 	void operator() (Sequence& seq){
 	    if (not valid_sequence(seq, kmer_size)){return;}
-		//~ cout << "go" << endl;
 		bool exists;
 		associated_read_ids = {}; // list of the ids of reads from the bank where a kmer occurs
 		reads_sharing_kmer_2_positions = {};  // store the position where a k-mer is seen in a read that can be potentially recruited
-		//~ read_group = {};
 		itKmer->setData(seq.getData());
 		uint i(0); // position on the read
 		uint64_t seqIndex(seq.getIndex() + 1);
@@ -168,93 +166,74 @@ public:
 		    }
 		    ++i;
 		}
-		for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
-		    if (r->second.size() >= theshold){
-			size_t lenseq = seq.getDataSize();
-			vector<uint> presence(uint(lenseq) - kmer_size + 1, 0);
-			uint count(0);
-			bool found(false);
-			uint startKmerPosi(0);
-			uint endKmerPosi(0);
-			for (uint j(0); j < r->second.size(); ++j){
-			    presence[r->second[j]] = 1;
-			}
-			pair <string, string> matchingRegion;
-			uint start(0);
-			for (uint w(0); w < presence.size(); ++w){
-			    if (w < size_window){
-				if (presence[w] == 1){
-				    endKmerPosi = w;
-				    ++count;
-				}
+		//~ for (auto r(reads_sharing_kmer_2_positions.begin()); r != reads_sharing_kmer_2_positions.end(); ++r){
+		    //~ size_t lenseq = seq.getDataSize();
+		    //~ uint bound(double((uint(lenseq) - kmer_size + 1) * threshold)/(kmer_size * 100));
+		    //~ if (r->second.size() >= bound){
+			//~ vector<uint> presence(uint(lenseq) - kmer_size + 1, 0);
+			//~ uint count(0);
+			//~ bool found(false);
+			//~ uint startKmerPosi(0);
+			//~ uint endKmerPosi(0);
+			//~ for (uint j(0); j < r->second.size(); ++j){
+			    //~ presence[r->second[j]] = 1;
+			//~ }
+			//~ pair <string, string> matchingRegion;
+			//~ uint start(0);
+			//~ for (uint w(0); w < presence.size(); ++w){
+			    //~ if (w < size_window){
+				//~ if (presence[w] == 1){
+				    //~ endKmerPosi = w;
+				    //~ ++count;
+				//~ }
 			    
-			    } else {
-				start = w - size_window + 1;
-				endKmerPosi = w;
-				startKmerPosi = start;
-				if (presence[start - 1] == 1 and count > 0){
-				    --count;
-				}
-				if (presence[w] == 1){
-				    ++count;
-				}
-			    }
-			    if (uint(double(count) / (size_window - kmer_size + 1) * 100) >= threshold){
-				found = true;
-				break;
-			    } 
-			}
-			if (found){
-			    string seqString(seq.toString());
-			    //~ string startKmer(seqString.substr(startKmerPosi, kmer_size));
-			    //~ string endKmer(seqString.substr(endKmerPosi, kmer_size));
-			    //~ matchingRegion = {startKmer, endKmer};
-			    bool confirm(false);
-			    // for the two reads to match, we want to find a window also in the recruited read
-			    for (uint posi(startKmerPosi); posi < endKmerPosi + 1; ++posi){
-				// regarder les 1 du vecteur presence <- recup le kmer puis voir sa position dans l'autre read
-				// regarder le 1er et le dernier 1 du vecteur présence ?
-			    }
-			    // previous condition to be matching
-			    //~ if (read_group.count(r->first)){
-				//~ for (uint rr(0); rr < read_group[r->first].size(); ++rr){
-				    //~ if (read_group[r->first][rr].index == seqIndex){ // the two reads have been found matching
-					//~ read_group[r->first][rr].confirmed = true;
-					//~ confirm = true;
-					//~ break;
-				    //~ }
+			    //~ } else {
+				//~ start = w - size_window + 1;
+				//~ endKmerPosi = w;
+				//~ startKmerPosi = start;
+				//~ if (presence[start - 1] == 1 and count > 0){
+				    //~ --count;
+				//~ }
+				//~ if (presence[w] == 1){
+				    //~ ++count;
 				//~ }
 			    //~ }
-			    if (read_group.count(seqIndex)){
-				read_group[seqIndex].push_back({r->first, confirm});
-			    } else {
-				readGrouped rg({r->first, confirm});
-				vector <readGrouped> v({rg});
-				read_group[seqIndex] = {v};
-			    }
-			}
-		    } else {
-			reads_sharing_kmer_2_positions.erase(r->first);  // not enough k-mers shared
-		    }
-		}
-	    string toPrint;
-	    bool read_id_printed = false; // Print (and sync file) only if the read is similar to something.
-	    if (not read_group[seqIndex].empty()){
-		if (not read_id_printed){
-		    read_id_printed = true;
-		    toPrint = to_string(seqIndex) + ":";
-		}
-		for (uint i(0); i < read_group[seqIndex].size(); ++i){
-		    //~ if (read_group[seqIndex][i].confirmed){
-			toPrint += to_string(read_group[seqIndex][i].index) + " ";
+			    //~ if (uint(double(count) * kmer_size / (size_window - kmer_size + 1) * 100) >= threshold){
+				//~ found = true;
+				//~ break;
+			    //~ } 
+			//~ }
+			//~ if (found){
+			    //~ string seqString(seq.toString());
+			    //~ bool confirm(false);
+			    //~ if (read_group.count(seqIndex)){
+				//~ read_group[seqIndex].push_back({r->first, confirm});
+			    //~ } else {
+				//~ readGrouped rg({r->first, confirm});
+				//~ vector <readGrouped> v({rg});
+				//~ read_group[seqIndex] = {v};
+			    //~ }
+			//~ }
+		    //~ } else {
+			//~ reads_sharing_kmer_2_positions.erase(r->first);  // not enough k-mers shared
 		    //~ }
-		}
-		if (read_id_printed){
-		    synchro->lock();
-		    toPrint += "\n";
-		    fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
-		    synchro->unlock();
-		}
+		//~ }
+	    //~ string toPrint;
+	    //~ bool read_id_printed = false; // Print (and sync file) only if the read is similar to something.
+	    //~ if (not read_group[seqIndex].empty()){
+		//~ if (not read_id_printed){
+		    //~ read_id_printed = true;
+		    //~ toPrint = to_string(seqIndex) + ":";
+		//~ }
+		//~ for (uint i(0); i < read_group[seqIndex].size(); ++i){
+			//~ toPrint += to_string(read_group[seqIndex][i].index) + " ";
+		//~ }
+		//~ if (read_id_printed){
+		    //~ synchro->lock();
+		    //~ toPrint += "\n";
+		    //~ fwrite(toPrint.c_str(), sizeof(char), toPrint.size(), outFile);
+		    //~ synchro->unlock();
+		//~ }
 	    }
 	}
 };
