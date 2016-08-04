@@ -18,11 +18,11 @@ static const char* STR_OUT_FILE = "-out";
 static const char* STR_CORE = "-core";
 
 
+
 SRC_linker_rna::SRC_linker_rna()  : Tool ("SRC_linker_rna"){
 	// We add some custom arguments for command line interface
 	getParser()->push_back (new OptionOneParam (STR_URI_GRAPH, "graph input",   true));
 	getParser()->push_back (new OptionOneParam (STR_URI_BANK_INPUT, "bank input",    true));
-	//~ getParser()->push_back (new OptionOneParam (STR_URI_QUERY_INPUT, "query input",    true));
 	getParser()->push_back (new OptionOneParam (STR_OUT_FILE, "output_file",    true));
 	getParser()->push_back (new OptionOneParam (STR_THRESHOLD, "Minimal percentage of shared kmer in a region for considering 2 reads in a same group.",    false, "75"));
 	getParser()->push_back (new OptionOneParam (STR_WINDOW, "Size of a region (putative exon).",    false, "80"));
@@ -129,6 +129,8 @@ public:
 		threshold=lol.threshold;
 		associated_read_ids=lol.associated_read_ids;
 		reads_sharing_kmer_2_positions = lol.reads_sharing_kmer_2_positions;
+		//~ reads_sharing_kmer_2_positions.max_load_factor ( 0.5);
+		//~ reads_sharing_kmer_2_positions.reserve ( 10000);
 		read_group =  lol.read_group;
 		model=lol.model;
 		itKmer = new Kmer<KMER_SPAN(1)>::ModelCanonical::Iterator (model);
@@ -215,9 +217,6 @@ public:
 			    }
 			}
 		    }
-		     //~ else { // segfault
-			//~ reads_sharing_kmer_2_positions.erase(r->first);  // not enough k-mers shared
-		    //~ }
 		}
 	    string toPrint;
 	    bool read_id_printed = false; // Print (and sync file) only if the read is similar to something.
