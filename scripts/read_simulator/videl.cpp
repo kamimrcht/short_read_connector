@@ -56,13 +56,17 @@ string randomSequence(const uint length){
 
 
 
-string mutateSequence(const string& referenceSequence, double mutRate=4.0, vector <double> ratioMutation={0.06,0.73,0.21}){
-	double substitutionRate(mutRate * ratioMutation[0]);
-	double insertionRate(mutRate * ratioMutation[1]);
-	double deletionRate(mutRate * ratioMutation[2]);
+string mutateSequence(const string& referenceSequence, uint maxMutRate=10, vector <double> ratioMutation={0.06,0.73,0.21}){
+	//~ double substitutionRate(mutRate * ratioMutation[0]);
+	//~ double insertionRate(mutRate * ratioMutation[1]);
+	//~ double deletionRate(mutRate * ratioMutation[2]);
 	string result;
 	result.reserve(2 * referenceSequence.size());
 	for(uint i(0); i < referenceSequence.size(); ++i){
+		uint mutRate(rand() % maxMutRate);
+		double substitutionRate(mutRate * ratioMutation[0]);
+		double insertionRate(mutRate * ratioMutation[1]);
+		double deletionRate(mutRate * ratioMutation[2]);
 		uint dice(rand() % 100);
 		if(dice<substitutionRate){
 			//SUBSTITUTION
@@ -87,6 +91,7 @@ string mutateSequence(const string& referenceSequence, double mutRate=4.0, vecto
 		}
 		//NO ERROR
 		result.push_back(referenceSequence[i]);
+		
 	}
 	return result;
 }
@@ -150,7 +155,7 @@ void generateReads(uint numberReads, uint referencesNumber=2, const string& outF
 int main(int argc, char ** argv){
 	srand (time(NULL));
 	auto startChrono = chrono::system_clock::now();
-	generateReads(1000);
+	generateReads(5000);
 	auto end = chrono::system_clock::now(); auto waitedFor = end - startChrono;
 	cout << "Time  in ms : " << (chrono::duration_cast<chrono::milliseconds>(waitedFor).count()) << endl;
 	return 0;
